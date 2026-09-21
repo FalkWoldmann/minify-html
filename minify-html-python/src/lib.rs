@@ -4,6 +4,9 @@ use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 use std::string::String;
 
+// The `..Default::default()` in the `Cfg` below is deliberate even while every field is listed:
+// it keeps this binding compiling when new options are added to the Rust API.
+#[allow(clippy::needless_update)]
 #[allow(clippy::too_many_arguments)]
 #[pyfunction]
 #[pyo3(
@@ -23,6 +26,7 @@ use std::string::String;
     minify_js = false,
     preserve_brace_template_syntax = false,
     preserve_chevron_percent_template_syntax = false,
+    preserve_esi_tags = false,
     remove_bangs = false,
     remove_processing_instructions = false
   )
@@ -42,6 +46,7 @@ fn minify(
   minify_js: bool,
   preserve_brace_template_syntax: bool,
   preserve_chevron_percent_template_syntax: bool,
+  preserve_esi_tags: bool,
   remove_bangs: bool,
   remove_processing_instructions: bool,
 ) -> String {
@@ -60,8 +65,12 @@ fn minify(
     minify_js,
     preserve_brace_template_syntax,
     preserve_chevron_percent_template_syntax,
+    preserve_esi_tags,
     remove_bangs,
     remove_processing_instructions,
+    // Options not listed above default to off. This lets new `Cfg` options be added to the
+    // Rust API without having to be wired through every binding just to keep them compiling.
+    ..Default::default()
   });
   String::from_utf8(out_code).unwrap()
 }

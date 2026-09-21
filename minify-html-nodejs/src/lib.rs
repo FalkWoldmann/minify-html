@@ -10,6 +10,9 @@ macro_rules! get_bool {
   };
 }
 
+// The `..Default::default()` in the `Cfg` below is deliberate even while every field is listed:
+// it keeps this binding compiling when new options are added to the Rust API.
+#[allow(clippy::needless_update)]
 fn minify(mut cx: FunctionContext) -> JsResult<JsBuffer> {
   let Ok(src) = cx.try_catch(|cx| cx.argument::<JsBuffer>(0)) else {
     return cx.throw_type_error("the first argument is not a Buffer");
@@ -32,8 +35,12 @@ fn minify(mut cx: FunctionContext) -> JsResult<JsBuffer> {
     minify_js: get_bool!(cx, opt, "minify_js"),
     preserve_brace_template_syntax: get_bool!(cx, opt, "preserve_brace_template_syntax"),
     preserve_chevron_percent_template_syntax: get_bool!(cx, opt, "preserve_chevron_percent_template_syntax"),
+    preserve_esi_tags: get_bool!(cx, opt, "preserve_esi_tags"),
     remove_bangs: get_bool!(cx, opt, "remove_bangs"),
     remove_processing_instructions: get_bool!(cx, opt, "remove_processing_instructions"),
+    // Options not listed above default to off. This lets new `Cfg` options be added to the
+    // Rust API without having to be wired through every binding just to keep them compiling.
+    ..Default::default()
   };
   let out = minify_html::minify(src.as_slice(&cx), &cfg);
   JsBuffer::from_slice(&mut cx, &out)

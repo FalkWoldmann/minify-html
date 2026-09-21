@@ -255,6 +255,24 @@ PHP blocks (`<?php` or `<?=`) also happen to be processing instructions, which a
 
 Note that in all of these syntax, the parsing is "dumb": it will simply look for the next subsequence of characters that match the closing delimiter. This may cause issues if nesting or string literals appear inside these blocks, but this should be rare.
 
+## Edge Side Includes
+
+[ESI](https://www.w3.org/TR/esi-lang/) markup is made up of XML elements in the `esi:` namespace that an edge proxy (e.g. Varnish, Akamai, Fastly) resolves before the response ever reaches a browser. Because it's XML and not HTML, an empty element is written with self-closing syntax:
+
+```html
+<div><esi:include src="/a" /><span>after</span></div>
+```
+
+HTML has no self-closing syntax for non-[void](https://html.spec.whatwg.org/multipage/syntax.html#void-elements) elements, so by default the trailing `/` is ignored and `<span>after</span>` is parsed as a *child* of the unclosed `<esi:include>`, mangling the document structure.
+
+Set the `preserve_esi_tags` Cfg option (`--preserve-esi-tags` on the CLI) to parse tags in the `esi:` namespace as XML instead. Self-closing tags are then kept as empty elements, and attribute values on ESI tags are always left quoted so that XML-based ESI processors can still parse them:
+
+```html
+<div><esi:include src="/a"/><span>after</span></div>
+```
+
+Note that this only applies to tags that are explicitly self-closed or explicitly closed; `<esi:include src="/a">` with no closing tag is still parsed as an HTML opening tag.
+
 ## Minification
 
 ### Spec compliance

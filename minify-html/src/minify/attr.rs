@@ -1,4 +1,5 @@
 use crate::entity::encode::encode_entities;
+use crate::parse::element::is_esi_tag;
 use crate::Cfg;
 use aho_corasick::AhoCorasickBuilder;
 use aho_corasick::MatchKind;
@@ -450,13 +451,17 @@ pub fn minify_attr(
   if sq.len() < min.len() {
     min = sq;
   };
-  let uq = encode_unquoted(
-    &encoded,
-    must_end_with_semicolon,
-    !cfg.allow_noncompliant_unquoted_attribute_values,
-  );
-  if uq.len() < min.len() {
-    min = uq;
+  // ESI tags are parsed as XML by the edge proxy that resolves them, and XML requires attribute
+  // values to be quoted, so never drop the quotes when preserving them.
+  if !(cfg.preserve_esi_tags && is_esi_tag(tag)) {
+    let uq = encode_unquoted(
+      &encoded,
+      must_end_with_semicolon,
+      !cfg.allow_noncompliant_unquoted_attribute_values,
+    );
+    if uq.len() < min.len() {
+      min = uq;
+    };
   };
   AttrMinified::Value(min)
 }

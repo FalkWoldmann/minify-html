@@ -83,6 +83,10 @@ struct Cli {
   #[structopt(long)]
   preserve_chevron_percent_template_syntax: bool,
 
+  /// Preserve [Edge Side Includes](https://www.w3.org/TR/esi-lang/) markup (any tag in the `esi:` namespace). Self-closing tags like `<esi:include src="/a" />` are honoured as empty elements, and their attribute values are left quoted, so that XML-based ESI processors can still parse them.
+  #[structopt(long)]
+  preserve_esi_tags: bool,
+
   /// Remove all bangs.
   #[structopt(long)]
   remove_bangs: bool,
@@ -126,6 +130,7 @@ fn main() {
     minify_js: args.minify_js,
     preserve_brace_template_syntax: args.preserve_brace_template_syntax,
     preserve_chevron_percent_template_syntax: args.preserve_chevron_percent_template_syntax,
+    preserve_esi_tags: args.preserve_esi_tags,
     remove_bangs: args.remove_bangs,
     remove_processing_instructions: args.remove_processing_instructions,
   });

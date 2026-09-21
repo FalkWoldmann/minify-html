@@ -7,6 +7,9 @@ use minify_html::minify as minify_html_native;
 use minify_html::Cfg;
 use std::str::from_utf8;
 
+// The `..Default::default()` in the `Cfg` below is deliberate even while every field is listed:
+// it keeps this binding compiling when new options are added to the Rust API.
+#[allow(clippy::needless_update)]
 fn build_cfg(env: &mut JNIEnv, obj: &JObject) -> Cfg {
   #[rustfmt::skip]
   // This is a statement because "attributes on expressions are experimental".
@@ -24,8 +27,12 @@ fn build_cfg(env: &mut JNIEnv, obj: &JObject) -> Cfg {
     minify_js: env.get_field(obj, "minify_js", "Z").unwrap().z().unwrap(),
     preserve_brace_template_syntax: env.get_field(obj, "preserve_brace_template_syntax", "Z").unwrap().z().unwrap(),
     preserve_chevron_percent_template_syntax: env.get_field(obj, "preserve_chevron_percent_template_syntax", "Z").unwrap().z().unwrap(),
+    preserve_esi_tags: env.get_field(obj, "preserve_esi_tags", "Z").unwrap().z().unwrap(),
     remove_bangs: env.get_field(obj, "remove_bangs", "Z").unwrap().z().unwrap(),
     remove_processing_instructions: env.get_field(obj, "remove_processing_instructions", "Z").unwrap().z().unwrap(),
+    // Options not listed above default to off. This lets new `Cfg` options be added to the
+    // Rust API without having to be wired through every binding just to keep them compiling.
+    ..Default::default()
   };
   cfg
 }

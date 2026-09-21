@@ -5,6 +5,9 @@ use magnus::StaticSymbol;
 use minify_html::minify as minify_html_native;
 use minify_html::Cfg as CfgNative;
 
+// The `..Default::default()` in the `Cfg` below is deliberate even while every field is listed:
+// it keeps this binding compiling when new options are added to the Rust API.
+#[allow(clippy::needless_update)]
 fn minify_html(source: String, cfg: RHash) -> String {
   #[rustfmt::skip]
   let out_code = minify_html_native(source.as_bytes(), &CfgNative {
@@ -21,8 +24,12 @@ fn minify_html(source: String, cfg: RHash) -> String {
     minify_js: cfg.aref(StaticSymbol::new("minify_js")).unwrap_or_default(),
     preserve_brace_template_syntax: cfg.aref(StaticSymbol::new("preserve_brace_template_syntax")).unwrap_or_default(),
     preserve_chevron_percent_template_syntax: cfg.aref(StaticSymbol::new("preserve_chevron_percent_template_syntax")).unwrap_or_default(),
+    preserve_esi_tags: cfg.aref(StaticSymbol::new("preserve_esi_tags")).unwrap_or_default(),
     remove_bangs: cfg.aref(StaticSymbol::new("remove_bangs")).unwrap_or_default(),
     remove_processing_instructions: cfg.aref(StaticSymbol::new("remove_processing_instructions")).unwrap_or_default(),
+    // Options not listed above default to off. This lets new `Cfg` options be added to the
+    // Rust API without having to be wired through every binding just to keep them compiling.
+    ..Default::default()
   });
   String::from_utf8(out_code).unwrap()
 }

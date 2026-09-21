@@ -18,6 +18,9 @@ macro_rules! get_prop {
   };
 }
 
+// The `..Default::default()` in the `Cfg` below is deliberate even while every field is listed:
+// it keeps this binding compiling when new options are added to the Rust API.
+#[allow(clippy::needless_update)]
 #[wasm_bindgen]
 pub fn minify(code: &[u8], cfg: &JsValue) -> Vec<u8> {
   #[rustfmt::skip]
@@ -35,8 +38,12 @@ pub fn minify(code: &[u8], cfg: &JsValue) -> Vec<u8> {
     minify_js: get_prop!(cfg, "minify_js"),
     preserve_brace_template_syntax: get_prop!(cfg, "preserve_brace_template_syntax"),
     preserve_chevron_percent_template_syntax: get_prop!(cfg, "preserve_chevron_percent_template_syntax"),
+    preserve_esi_tags: get_prop!(cfg, "preserve_esi_tags"),
     remove_bangs: get_prop!(cfg, "remove_bangs"),
     remove_processing_instructions: get_prop!(cfg, "remove_processing_instructions"),
+    // Options not listed above default to off. This lets new `Cfg` options be added to the
+    // Rust API without having to be wired through every binding just to keep them compiling.
+    ..Default::default()
   };
   minify_html::minify(code, &cfg)
 }

@@ -17,6 +17,7 @@ pub mod title;
 pub struct ParseOpts {
   pub treat_brace_as_opaque: bool,
   pub treat_chevron_percent_as_opaque: bool,
+  pub treat_esi_tags_as_self_closable: bool,
 }
 
 pub struct Code<'c> {
@@ -34,7 +35,7 @@ pub struct Code<'c> {
 pub struct Checkpoint(usize);
 
 impl<'c> Code<'c> {
-  pub fn new_with_opts(code: &[u8], opts: ParseOpts) -> Code {
+  pub fn new_with_opts(code: &[u8], opts: ParseOpts) -> Code<'_> {
     Code {
       code,
       next: 0,
@@ -46,7 +47,7 @@ impl<'c> Code<'c> {
     }
   }
 
-  pub fn new(code: &[u8]) -> Code {
+  pub fn new(code: &[u8]) -> Code<'_> {
     Code::new_with_opts(code, ParseOpts::default())
   }
 
