@@ -2,7 +2,9 @@
 
 ## Pending
 
+- Add `preserve_esi_tags` option, which parses [Edge Side Includes](https://www.w3.org/TR/esi-lang/) markup (any tag in the `esi:` namespace) as XML: self-closing tags like `<esi:include src="/a" />` are honoured as empty elements instead of being parsed as HTML opening tags that swallow their following siblings, and attribute values on ESI tags are left quoted so XML-based ESI processors can still parse them.
 - Disable treeshake annotations (e.g., `/*#__PURE__*/`) in minified JavaScript output as they are only useful for bundlers, not inline scripts.
+- Update oxc to 0.139 (requires Rust 1.95 or later) and pyo3 to 0.29.
 
 ## 0.18.1
 

@@ -28,6 +28,8 @@ pub struct Cfg {
   pub preserve_brace_template_syntax: bool,
   /// When `<%` is seen in content, all source code until the subsequent matching closing `%>` gets piped through untouched.
   pub preserve_chevron_percent_template_syntax: bool,
+  /// Preserve [Edge Side Includes](https://www.w3.org/TR/esi-lang/) markup (any tag in the `esi:` namespace, such as `<esi:include>`). ESI tags are XML elements that an edge proxy resolves before a browser ever sees them, so they're written using XML syntax: self-closing tags like `<esi:include src="/a" />` are honoured as empty elements instead of being parsed as HTML opening tags, and their attribute values are always left quoted so that XML-based ESI processors can still parse them.
+  pub preserve_esi_tags: bool,
   /// Remove all bangs.
   pub remove_bangs: bool,
   /// Remove all processing instructions.

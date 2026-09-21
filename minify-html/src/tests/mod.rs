@@ -111,6 +111,64 @@ fn test_preserve_template_chevron_percent_syntax() {
 }
 
 #[test]
+fn test_preserve_esi_tags() {
+  let mut cfg = Cfg::default();
+  cfg.preserve_esi_tags = true;
+
+  // Without the flag, the trailing `/` is not a self-closing indicator, so following siblings are
+  // incorrectly parsed as children of the ESI element.
+  eval_with_cfg(
+    br#"<div><esi:include src="/a" /><span>after</span></div>"#,
+    br#"<div><esi:include src=/a><span>after</span>"#,
+    &Cfg::default(),
+  );
+  eval_with_cfg(
+    br#"<div><esi:include src="/a" /><span>after</span></div>"#,
+    br#"<div><esi:include src="/a"/><span>after</span></div>"#,
+    &cfg,
+  );
+
+  // Applies to every tag in the `esi:` namespace, including nested control flow.
+  eval_with_cfg(
+    br#"<esi:comment text="hello" /><p>p</p>"#,
+    br#"<esi:comment text="hello"/><p>p"#,
+    &cfg,
+  );
+  eval_with_cfg(
+    br#"<esi:choose><esi:when test="a"><esi:include src="/a" /></esi:when><esi:otherwise><esi:include src="/b" /></esi:otherwise></esi:choose>"#,
+    br#"<esi:choose><esi:when test="a"><esi:include src="/a"/></esi:when><esi:otherwise><esi:include src="/b"/></esi:otherwise></esi:choose>"#,
+    &cfg,
+  );
+
+  // Attribute values stay quoted so that XML-based ESI processors can still parse them.
+  eval_with_cfg(
+    br#"<esi:include src="/a" alt="/b" />"#,
+    br#"<esi:include alt="/b" src="/a"/>"#,
+    &cfg,
+  );
+
+  // Elements with an explicit closing tag keep their children, as before. Quoting is only forced on
+  // the ESI element's own attributes; nested HTML is minified as usual.
+  eval_with_cfg(
+    br#"<esi:remove><a href="/a">a</a></esi:remove>"#,
+    br#"<esi:remove><a href=/a>a</a></esi:remove>"#,
+    &cfg,
+  );
+
+  // Non-ESI tags are unaffected: a trailing `/` on an HTML element is still not self-closing.
+  eval_with_cfg(
+    br#"<div><img src="/a" /><span>after</span></div>"#,
+    br#"<div><img src=/a><span>after</span></div>"#,
+    &cfg,
+  );
+  eval_with_cfg(
+    br#"<div><p /><span>after</span></div>"#,
+    br#"<div><p><span>after</span></div>"#,
+    &cfg,
+  );
+}
+
+#[test]
 fn test_minification_of_doctype() {
   let mut cfg = Cfg::new();
   cfg.minify_doctype = true;

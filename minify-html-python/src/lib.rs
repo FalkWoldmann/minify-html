@@ -23,6 +23,7 @@ use std::string::String;
     minify_js = false,
     preserve_brace_template_syntax = false,
     preserve_chevron_percent_template_syntax = false,
+    preserve_esi_tags = false,
     remove_bangs = false,
     remove_processing_instructions = false
   )
@@ -42,6 +43,7 @@ fn minify(
   minify_js: bool,
   preserve_brace_template_syntax: bool,
   preserve_chevron_percent_template_syntax: bool,
+  preserve_esi_tags: bool,
   remove_bangs: bool,
   remove_processing_instructions: bool,
 ) -> String {
@@ -60,6 +62,7 @@ fn minify(
     minify_js,
     preserve_brace_template_syntax,
     preserve_chevron_percent_template_syntax,
+    preserve_esi_tags,
     remove_bangs,
     remove_processing_instructions,
   });

@@ -34,6 +34,8 @@ export function minify(
     preserve_brace_template_syntax?: boolean;
     /** When `<%` is seen in content, all source code until the subsequent matching closing `%>` gets piped through untouched. */
     preserve_chevron_percent_template_syntax?: boolean;
+    /** Preserve [Edge Side Includes](https://www.w3.org/TR/esi-lang/) markup (any tag in the `esi:` namespace). Self-closing tags like `<esi:include src="/a" />` are honoured as empty elements, and their attribute values are left quoted, so that XML-based ESI processors can still parse them. */
+    preserve_esi_tags?: boolean;
     /** Remove all bangs. */
     remove_bangs?: boolean;
     /** Remove all processing instructions. */

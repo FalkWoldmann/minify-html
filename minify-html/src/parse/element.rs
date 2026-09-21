@@ -65,6 +65,13 @@ impl Debug for ParsedTag {
   }
 }
 
+// ESI (Edge Side Includes) tags are XML elements in the `esi:` namespace that an edge proxy resolves
+// before the response reaches a browser, so they're written with XML syntax (including self-closing
+// tags) even though they appear in an HTML document.
+pub fn is_esi_tag(name: &[u8]) -> bool {
+  name.starts_with(b"esi:")
+}
+
 // While not valid, attributes in closing tags still need to be parsed (and then discarded) as attributes e.g. `</div x=">">`, which is why this function is used for both opening and closing tags.
 // TODO Use generics to create version that doesn't create an AHashMap.
 pub fn parse_tag(code: &mut Code) -> ParsedTag {
@@ -145,8 +152,12 @@ pub fn parse_element(code: &mut Code, ns: Namespace, parent: &[u8]) -> NodeData 
     ns
   };
 
-  // Only foreign elements can be self closed.
-  if self_closing && ns != Namespace::Html {
+  // Only foreign elements can be self closed, except for ESI tags when the user has opted into
+  // preserving them, as those are XML and are never parsed as HTML by a browser.
+  if self_closing
+    && (ns != Namespace::Html
+      || (code.opts.treat_esi_tags_as_self_closable && is_esi_tag(&elem_name)))
+  {
     return NodeData::Element {
       attributes,
       children: Vec::new(),
