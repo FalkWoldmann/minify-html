@@ -2,6 +2,7 @@ use crate::ast::ElementClosingTag;
 use crate::ast::NodeData;
 use crate::entity::decode::decode_entities;
 use crate::parse::bang::parse_bang;
+use crate::parse::brace_directive_len;
 use crate::parse::comment::parse_comment;
 use crate::parse::content::ContentType::*;
 use crate::parse::doctype::parse_doctype;
@@ -19,6 +20,11 @@ use minify_html_common::spec::tag::ns::Namespace;
 use minify_html_common::spec::tag::omission::can_omit_as_before;
 use minify_html_common::spec::tag::omission::can_omit_as_last_node;
 use minify_html_common::spec::tag::void::VOID_TAGS;
+use minify_html_common::spec::tag::whitespace::get_whitespace_minification_for_tag;
+use minify_html_common::whitespace::collapse_whitespace;
+use minify_html_common::whitespace::is_all_whitespace;
+use minify_html_common::whitespace::left_trim;
+use minify_html_common::whitespace::right_trim;
 use once_cell::sync::Lazy;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -172,23 +178,84 @@ pub struct ParsedContent {
   pub closing_tag_omitted: bool,
 }
 
+fn literal_tag_name(source: &[u8]) -> Option<&[u8]> {
+  let source = source.strip_prefix(b"<")?;
+  let source = source.strip_prefix(b"/").unwrap_or(source);
+  let len = source.iter().take_while(|&&c| TAG_NAME_CHAR[c]).count();
+  (len != 0).then_some(&source[..len])
+}
+
+fn compact_template_text(value: &mut Vec<u8>, previous: Option<&NodeData>, next: &[u8]) {
+  let next_name = literal_tag_name(next);
+  let previous_name = match previous {
+    Some(NodeData::Element { name, .. }) => Some(name.as_slice()),
+    Some(NodeData::Opaque { raw_source }) if raw_source.starts_with(b"</") => {
+      literal_tag_name(raw_source)
+    }
+    _ => None,
+  };
+  // Apply container trimming only to an entirely literal, directly bounded
+  // text body. Never infer parentage across directives or sibling elements.
+  if let Some(NodeData::Element {
+    name,
+    closing_tag: ElementClosingTag::Omitted,
+    ..
+  }) = previous
+  {
+    if next.starts_with(b"</") && next_name.is_some_and(|next| next.eq_ignore_ascii_case(name)) {
+      let rule = get_whitespace_minification_for_tag(Namespace::Html, name, false);
+      if rule.trim {
+        left_trim(value);
+        right_trim(value);
+      }
+    }
+  }
+  // A separator between inline or unknown/custom elements can be visible.
+  // Remove whitespace-only runs only between two known layout boundaries.
+  if is_all_whitespace(value)
+    && previous_name.is_some_and(|name| {
+      get_whitespace_minification_for_tag(Namespace::Html, name, false).destroy_whole
+    })
+    && next_name.is_some_and(|name| {
+      get_whitespace_minification_for_tag(Namespace::Html, name, false).destroy_whole
+    })
+  {
+    value.clear();
+  } else {
+    collapse_whitespace(value);
+  }
+}
+
 // A source template is not an HTML tree: mutually exclusive branches can open
-// and close different elements. Keep its token order and all text boundaries,
-// while still applying the ordinary minifier to literal HTML opening tags.
+// and close different elements. Keep token order, and compact literal text only
+// in normal HTML contexts without inferring a tree across template boundaries.
 pub fn parse_template_content(code: &mut Code) -> ParsedContent {
   let mut nodes = Vec::new();
   let matcher = content_type_matcher(code);
   let mut foreign_depth = 0usize;
   let mut uncertain_foreign = false;
+  let mut pre_depth = 0usize;
+  let mut code_depth = 0usize;
+  let mut uncertain_whitespace_sensitive = false;
   while !code.at_end() {
     let (text_len, typ) = match matcher.0.find(code.as_slice()) {
       Some(m) => (m.start(), matcher.1[m.pattern()]),
       None => (code.rem(), Text),
     };
     if text_len != 0 {
-      nodes.push(NodeData::Opaque {
-        raw_source: code.copy_and_shift(text_len),
-      });
+      let mut raw_source = code.copy_and_shift(text_len);
+      if foreign_depth == 0
+        && !uncertain_foreign
+        && pre_depth == 0
+        && code_depth == 0
+        && !uncertain_whitespace_sensitive
+      {
+        // Entities remain source bytes; only HTML whitespace is compacted.
+        compact_template_text(&mut raw_source, nodes.last(), code.as_slice());
+      }
+      if !raw_source.is_empty() {
+        nodes.push(NodeData::Opaque { raw_source });
+      }
     }
     match typ {
       Text => break,
@@ -202,8 +269,8 @@ pub fn parse_template_content(code: &mut Code) -> ParsedContent {
           // branches. Retain subsequent headers instead of guessing a context.
           uncertain_foreign = true;
         }
-        if (foreign || matches!(tag.name.as_slice(), b"html" | b"head"))
-          && tag.raw_opening_tag.is_none()
+        if foreign
+          || (matches!(tag.name.as_slice(), b"html" | b"head") && tag.raw_opening_tag.is_none())
         {
           tag.raw_opening_tag = Some(code.slice_since(start).to_vec());
         }
@@ -232,6 +299,13 @@ pub fn parse_template_content(code: &mut Code) -> ParsedContent {
         } else {
           ElementClosingTag::Omitted
         };
+        if closing_tag == ElementClosingTag::Omitted {
+          match tag.name.as_slice() {
+            b"pre" => pre_depth += 1,
+            b"code" => code_depth += 1,
+            _ => {}
+          }
+        }
         let body = if special_content && closing_tag == ElementClosingTag::Omitted {
           Some(code.slice_and_shift_special_content(&tag.name).to_vec())
         } else if plaintext {
@@ -239,6 +313,16 @@ pub fn parse_template_content(code: &mut Code) -> ParsedContent {
         } else {
           None
         };
+        // A directive can select a different literal rawtext/RCDATA closing
+        // tag. Later source may still be raw content on another branch, so it
+        // must not be interpreted as normal HTML tokens.
+        let uncertain_special_content = special_content
+          && body.as_ref().is_some_and(|body| {
+            body.windows(2).any(|seq| {
+              (code.opts.treat_brace_as_opaque && seq == b"{%")
+                || (code.opts.treat_chevron_percent_as_opaque && seq == b"<%")
+            })
+          });
         nodes.push(NodeData::Element {
           attributes: tag.attributes,
           raw_opening_tag: tag.raw_opening_tag,
@@ -251,12 +335,22 @@ pub fn parse_template_content(code: &mut Code) -> ParsedContent {
         if let Some(raw_source) = body {
           nodes.push(NodeData::Opaque { raw_source });
         }
+        if uncertain_special_content {
+          nodes.push(NodeData::Opaque {
+            raw_source: code.copy_and_shift(code.rem()),
+          });
+        }
       }
       ClosingTag => {
         let start = code.take_checkpoint();
         let tag = parse_tag(code);
         if matches!(tag.name.as_slice(), b"svg" | b"math") {
           foreign_depth = foreign_depth.saturating_sub(1);
+        }
+        match tag.name.as_slice() {
+          b"pre" => pre_depth = pre_depth.saturating_sub(1),
+          b"code" => code_depth = code_depth.saturating_sub(1),
+          _ => {}
         }
         nodes.push(NodeData::Opaque {
           raw_source: code.slice_since(start).to_vec(),
@@ -300,8 +394,32 @@ pub fn parse_template_content(code: &mut Code) -> ParsedContent {
         if foreign_depth != 0 {
           uncertain_foreign = true;
         }
+        if (pre_depth != 0 || code_depth != 0)
+          && matches!(typ, OpaqueBracePercent | OpaqueChevronPercent)
+        {
+          // A branch may close a sensitive element on only one path. Preserve
+          // subsequent text rather than guessing which path owns each token.
+          uncertain_whitespace_sensitive = true;
+        }
         let start = code.take_checkpoint();
+        let raw_block =
+          code.opts.treat_brace_as_opaque && brace_directive_len(code.as_slice(), b"raw").is_some();
         code.shift_template();
+        if raw_block {
+          // A raw block can leave preformatted markup open. Retain subsequent
+          // text, and also foreign headers if its literal output may open SVG
+          // or MathML. Do not interpret or rewrite the raw body itself.
+          uncertain_whitespace_sensitive = true;
+          uncertain_foreign |= code
+            .slice_since(start)
+            .split(|&c| c == b'<')
+            .skip(1)
+            .any(|rest| {
+              let len = rest.iter().take_while(|&&c| TAG_NAME_CHAR[c]).count();
+              let name = &rest[..len];
+              name.eq_ignore_ascii_case(b"svg") || name.eq_ignore_ascii_case(b"math")
+            });
+        }
         nodes.push(NodeData::Opaque {
           raw_source: code.slice_since(start).to_vec(),
         });

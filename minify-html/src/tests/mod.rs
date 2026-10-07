@@ -89,18 +89,18 @@ fn test_preserve_template_brace_syntax() {
   );
   eval_with_cfg(
     b"<p> {%   hello    world! %}  {%}{#} echo '  </p><P><script>  let x = 1; //'  %} </p>",
-    b"<p> {%   hello    world! %}  {%}{#} echo '  </p><P><script>  let x = 1; //'  %} </p>",
+    b"<p> {%   hello    world! %} {%}{#} echo '  </p><P><script>  let x = 1; //'  %} </p>",
     &cfg,
   );
   eval_with_cfg(
     b"<p> {#   hello    world! #}  {#}{# echo '  </p><P><script>  let x = 1; //'  #} </p>",
-    b"<p> {#   hello    world! #}  {#}{# echo '  </p><P><script>  let x = 1; //'  #} </p>",
+    b"<p> {#   hello    world! #} {#}{# echo '  </p><P><script>  let x = 1; //'  #} </p>",
     &cfg,
   );
 }
 
 #[test]
-fn should_preserve_askama_control_flow_inside_start_tags() {
+fn should_compact_askama_control_flow_inside_start_tags() {
   let cfg = Cfg {
     preserve_brace_template_syntax: true,
     ..Cfg::default()
@@ -114,7 +114,13 @@ fn should_preserve_askama_control_flow_inside_start_tags() {
 {% endmatch %}
     aria-label="Details zu {{ campaign_title }}"
 >{{ text }}</button>"#;
-  eval_with_cfg(source, source, &cfg);
+  // Match arms keep their tokens and quoted values, with one attribute
+  // separator in place of each formatting newline/indentation run.
+  eval_with_cfg(
+    source,
+    br#"<button {% match legacy_sheet_url %} {% when Some with (sheet_url) %} data-url='{{ sheet_url | base64_encode }}' {% when None %} data-benefit-id="{{ benefit_id }}" {% endmatch %} aria-label="Details zu {{ campaign_title }}" >{{ text }}</button>"#,
+    &cfg,
+  );
 }
 
 #[test]
@@ -174,7 +180,7 @@ fn should_still_minify_static_tags_with_template_preservation_enabled() {
   );
   eval_with_cfg(
     br#"<p>{{name}}</p><button title="someValue" data-id="42">  text  </button><!-- remove -->"#,
-    br#"<p>{{name}}</p><button data-id=42 title=someValue>  text  </button>"#,
+    br#"<p>{{name}}</p><button data-id=42 title=someValue>text</button>"#,
     &cfg,
   );
 }
@@ -301,6 +307,199 @@ fn should_keep_inline_text_spacing_next_to_dynamic_expressions() {
     ..Cfg::default()
   };
   let source = b"<div><span>Hello</span> {{ name }}  {{ more }}</div><p>  {{- controlled -}}  {%~ if visible ~%} visible {%~ endif ~%}</p>";
+  // HTML collapses the literal runs, but each expression still has its
+  // separator, including whitespace consumed by Askama's trim controls.
+  eval_with_cfg(
+    source,
+    b"<div><span>Hello</span> {{ name }} {{ more }}</div><p> {{- controlled -}} {%~ if visible ~%} visible {%~ endif ~%}</p>",
+    &cfg,
+  );
+}
+
+#[test]
+fn should_compact_cinema_header_without_changing_tracking_json_or_conditional_attrs() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    br###"<oc-cinema-v1
+    data-tr-v1='{"name": "cinema", "details": "{{ choose("%}", "a>b") }}"}'
+    {%~ if addTrackingInitFlag ~%}data-tr-v1.lock-init{%~ endif ~%}
+    class="cinema  module"
+>{{ text }}</oc-cinema-v1>"###,
+    br###"<oc-cinema-v1 data-tr-v1='{"name": "cinema", "details": "{{ choose("%}", "a>b") }}"}' {%~ if addTrackingInitFlag ~%}data-tr-v1.lock-init{%~ endif ~%} class="cinema  module" >{{ text }}</oc-cinema-v1>"###,
+    &cfg,
+  );
+}
+
+#[test]
+fn should_leave_quoted_attribute_newlines_and_raw_tokens_untouched() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    b"<div\n title=\"line one\n  line two {{ text }}\"\n {% raw %}data-raw='a\n  b'{% endraw %}\n class='last'>body</div>",
+    b"<div title=\"line one\n  line two {{ text }}\" {% raw %}data-raw='a\n  b'{% endraw %} class='last'>body</div>",
+    &cfg,
+  );
+}
+
+#[test]
+fn should_remove_static_layout_indentation_but_keep_custom_element_separators() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    b"<section>\n  <div>one</div>\n  <div>two</div>\n</section><oc-cinema-v1>\n  <oc-icon>{{icon}}</oc-icon>\n</oc-cinema-v1>",
+    b"<section><div>one</div><div>two</div></section><oc-cinema-v1> <oc-icon>{{icon}}</oc-icon> </oc-cinema-v1>",
+    &cfg,
+  );
+}
+
+#[test]
+fn should_keep_visible_span_trailing_spaces_and_inter_inline_separators() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    b"<span>nur noch </span>\n  <span>{{days}}</span>\n  <span>nur bis </span>{{date}}",
+    b"<span>nur noch </span> <span>{{days}}</span> <span>nur bis </span>{{date}}",
+    &cfg,
+  );
+}
+
+#[test]
+fn should_collapse_expression_adjacent_layout_without_joining_visible_text() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    b"<p>\n  prefix \t{{ first }}\n  {{ second }} suffix \n</p>",
+    b"<p> prefix {{ first }} {{ second }} suffix </p>",
+    &cfg,
+  );
+}
+
+#[test]
+fn should_preserve_preformatted_text_and_resume_after_literal_sensitive_tags() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    b"<pre>\n  alpha <span> beta \n </span>{{ text }}\n</pre><code>\n  code\n</code><div>\n  normal text\n</div>",
+    b"<pre>\n  alpha <span> beta \n </span>{{ text }}\n</pre><code>\n  code\n</code><div>normal text</div>",
+    &cfg,
+  );
+}
+
+#[test]
+fn should_preserve_foreign_text_indentation_in_template_token_mode() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  let source = b"<svg>\n  <text>  literal text\n  </text>\n</svg><p>{{name}}</p>";
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_collapse_split_branch_indentation_without_reparenting_tags() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    b"{% if first %}\n  <section>\n{% else %}\n  <aside>\n{% endif %}\n  <span>nur noch </span>\n  {{value}}\n{% if first %}\n</section>\n{% else %}\n</aside>\n{% endif %}",
+    b"{% if first %} <section> {% else %} <aside> {% endif %} <span>nur noch </span> {{value}} {% if first %} </section> {% else %} </aside> {% endif %}",
+    &cfg,
+  );
+}
+
+#[test]
+fn should_retain_sensitive_whitespace_across_conditional_closing_branches() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  // The second body can still be inside <pre> even though the first literal
+  // closing tag has already been consumed on the non-rendered branch.
+  let source = b"<pre>{% if first %}\n  one\n</pre>{% else %}\n  two\n</pre>{% endif %}<div>\n  uncertain\n</div>";
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_compact_templated_esi_headers_and_keep_xml_quotes_and_siblings() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    preserve_esi_tags: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    br#"<esi:include
+    src="{{ url }}"
+    alt=""
+    data-test='a  b'
+/><span>{{after}}</span>"#,
+    br#"<esi:include src="{{ url }}" alt="" data-test='a  b' /><span>{{after}}</span>"#,
+    &cfg,
+  );
+}
+
+#[test]
+fn should_preserve_text_after_a_raw_block_that_can_open_preformatted_markup() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    b"{% raw %}<pre>{% endraw %}\n  literal {{value}}\n</pre><div title=\"after\">text</div>",
+    b"{% raw %}<pre>{% endraw %}\n  literal {{value}}\n</pre><div title=after>text</div>",
+    &cfg,
+  );
+}
+
+#[test]
+fn should_preserve_foreign_headers_after_a_raw_literal_namespace_opener() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  let source = br#"{% raw %}<svg>{% endraw %}<linearGradient id="after"></linearGradient></svg>"#;
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_not_compact_potential_rawtext_after_a_conditional_closing_tag() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    minify_js: true,
+    ..Cfg::default()
+  };
+  // On the else path, the first </script> is not rendered. The later bytes
+  // (including an HTML-looking string) still belong to JavaScript rawtext.
+  let source = br#"<script>{% if first %}
+  first();
+</script>{% else %}
+  second("<b title='literal'>  text  </b>");
+</script>{% endif %}<div title="after">  untouched  </div>"#;
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_preserve_literal_indentation_in_rcdata_and_rawtext_template_bodies() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    minify_js: true,
+    minify_css: true,
+    ..Cfg::default()
+  };
+  let source = b"<title>\n  {{title}}  literal\n</title><textarea>\n  {{value}}\n</textarea><script>\n  run('{{value}}');\n</script><style>\n  .x { content: '{{value}}'; }\n</style>";
   eval_with_cfg(source, source, &cfg);
 }
 

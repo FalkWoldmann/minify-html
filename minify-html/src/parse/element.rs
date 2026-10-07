@@ -73,6 +73,36 @@ pub fn is_esi_tag(name: &[u8]) -> bool {
   name.starts_with(b"esi:")
 }
 
+// Keep the original attribute order and spelling. Only HTML whitespace outside
+// quoted values and complete template tokens is a formatting separator.
+fn compact_template_tag(source: &[u8], opts: crate::parse::ParseOpts) -> Vec<u8> {
+  let mut code = Code::new_with_opts(source, opts);
+  let mut out = Vec::with_capacity(source.len());
+  let mut quote = None;
+  while !code.at_end() {
+    let start = code.take_checkpoint();
+    if code.shift_template() {
+      out.extend_from_slice(code.slice_since(start));
+      continue;
+    }
+    let c = code.as_slice()[0];
+    if let Some(delim) = quote {
+      if c == delim {
+        quote = None;
+      }
+    } else if matches!(c, b'\'' | b'"') {
+      quote = Some(c);
+    } else if WHITESPACE[c] {
+      code.shift_while_in_lookup(WHITESPACE);
+      out.push(b' ');
+      continue;
+    }
+    out.push(c);
+    code.shift(1);
+  }
+  out
+}
+
 // While not valid, attributes in closing tags still need to be parsed (and then discarded) as attributes e.g. `</div x=">">`, which is why this function is used for both opening and closing tags.
 // TODO Use generics to create version that doesn't create an AHashMap.
 pub fn parse_tag(code: &mut Code) -> ParsedTag {
@@ -146,7 +176,7 @@ pub fn parse_tag(code: &mut Code) -> ParsedTag {
   let has_template = code.opts.contains_template_syntax(source);
   ParsedTag {
     attributes,
-    raw_opening_tag: has_template.then(|| source.to_vec()),
+    raw_opening_tag: has_template.then(|| compact_template_tag(source, code.opts.clone())),
     name: elem_name,
     self_closing,
   }

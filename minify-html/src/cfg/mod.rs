@@ -25,11 +25,11 @@ pub struct Cfg {
   /// Minify JavaScript in `<script>` tags using [minify-js](https://github.com/wilsonzlin/minify-js).
   pub minify_js: bool,
   /// Preserve `{{ ... }}`, nested `{# ... #}`, and `{% ... %}` syntax, including raw blocks.
-  /// Inputs containing template syntax use a token-preserving path: explicit tags and literal
-  /// text whitespace/entities are retained, without inferring an HTML tree across branches.
-  /// Literal HTML start tags, comments, and doctypes are still minified. Template-bearing
-  /// start tags and rawtext/RCDATA bodies remain verbatim; foreign headers are retained
-  /// when their namespace cannot be determined safely.
+  /// Template inputs use a token-preserving path without inferring HTML trees across branches.
+  /// Normal HTML whitespace and attribute separators are compacted; quoted values, token
+  /// internals, significant inline separators and explicit closing tags remain intact.
+  /// Preformatted/raw content, rawtext/RCDATA and foreign or uncertain contexts retain whitespace.
+  /// Literal HTML start tags, safe comments and doctypes are still minified.
   pub preserve_brace_template_syntax: bool,
   /// Preserve `<% ... %>` syntax using the same token-preserving path as brace templates.
   /// Attribute templates are treated as opaque, including quoted strings inside expressions.
