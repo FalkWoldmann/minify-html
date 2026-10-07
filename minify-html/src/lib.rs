@@ -4,6 +4,7 @@ use crate::ast::c14n::c14n_serialise_ast;
 pub use crate::cfg::Cfg;
 use crate::minify::content::minify_content;
 use crate::parse::content::parse_content;
+use crate::parse::content::parse_template_content;
 use crate::parse::Code;
 use minify_html_common::spec::tag::ns::Namespace;
 use minify_html_common::spec::tag::EMPTY_SLICE;
@@ -43,7 +44,11 @@ pub fn minify(src: &[u8], cfg: &Cfg) -> Vec<u8> {
     treat_chevron_percent_as_opaque: cfg.preserve_chevron_percent_template_syntax,
     treat_esi_tags_as_self_closable: cfg.preserve_esi_tags,
   });
-  let parsed = parse_content(&mut code, Namespace::Html, EMPTY_SLICE, EMPTY_SLICE);
+  let parsed = if code.opts.contains_template_syntax(src) {
+    parse_template_content(&mut code)
+  } else {
+    parse_content(&mut code, Namespace::Html, EMPTY_SLICE, EMPTY_SLICE)
+  };
   let mut out = Vec::with_capacity(src.len());
   minify_content(
     cfg,

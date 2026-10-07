@@ -438,7 +438,7 @@ pub fn minify_attr(
     return AttrMinified::Redundant;
   };
 
-  if is_boolean || value_raw.is_empty() {
+  if (is_boolean || value_raw.is_empty()) && !(cfg.preserve_esi_tags && is_esi_tag(tag)) {
     return AttrMinified::NoValue;
   };
 

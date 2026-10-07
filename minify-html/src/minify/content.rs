@@ -131,6 +131,7 @@ pub fn minify_content(
       NodeData::Doctype { legacy, ended } => minify_doctype(cfg, out, &legacy, ended),
       NodeData::Element {
         attributes,
+        raw_opening_tag,
         children,
         closing_tag,
         name,
@@ -146,6 +147,7 @@ pub fn minify_content(
         (i as isize) == index_of_last_nonempty_text_or_elem,
         &name,
         attributes,
+        raw_opening_tag.as_deref(),
         closing_tag,
         children,
       ),

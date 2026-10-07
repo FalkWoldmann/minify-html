@@ -253,7 +253,9 @@ minify-html can parse and preserve `{{`/`{%`/`{#` and `<%` syntax in the source 
 
 PHP blocks (`<?php` or `<?=`) also happen to be processing instructions, which are preserved by default.
 
-Note that in all of these syntax, the parsing is "dumb": it will simply look for the next subsequence of characters that match the closing delimiter. This may cause issues if nesting or string literals appear inside these blocks, but this should be rare.
+When an enabled template delimiter occurs, the source is parsed as tokens rather than as a fully rendered HTML tree. Quoted delimiter strings, braced expressions, nested `{# ... #}` comments and `{% raw %}` blocks are preserved. Start tags containing template syntax retain their original attribute order, quotes and control-flow blocks; explicit closing tags, text whitespace/entities and rawtext/RCDATA bodies also remain untouched. This prevents mutually exclusive branches and dynamic text from being rewritten according to a guessed HTML tree.
+
+Literal HTML opening tags and safe comments/doctypes are still minified. This conservative template mode is not equivalent to minifying rendered HTML: text spacing, templated headers and raw regions are intentionally retained. Inputs without enabled template delimiters keep the normal HTML minifier. For Askama build-time preprocessing with ESI, enable `preserve_brace_template_syntax` and `preserve_esi_tags`, keep closing and HTML/head opening tags, and leave JavaScript/CSS and possibly-noncompliant minification disabled.
 
 ## Edge Side Includes
 

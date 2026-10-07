@@ -46,6 +46,7 @@ pub fn peek_tag_name(code: &mut Code) -> Vec<u8> {
 #[derive(Eq, PartialEq)]
 pub struct ParsedTag {
   pub attributes: AHashMap<Vec<u8>, AttrVal>,
+  pub raw_opening_tag: Option<Vec<u8>>,
   pub name: Vec<u8>,
   pub self_closing: bool,
 }
@@ -75,6 +76,7 @@ pub fn is_esi_tag(name: &[u8]) -> bool {
 // While not valid, attributes in closing tags still need to be parsed (and then discarded) as attributes e.g. `</div x=">">`, which is why this function is used for both opening and closing tags.
 // TODO Use generics to create version that doesn't create an AHashMap.
 pub fn parse_tag(code: &mut Code) -> ParsedTag {
+  let start = code.take_checkpoint();
   let elem_name = parse_tag_name(code);
   let mut attributes = AHashMap::default();
   let self_closing;
@@ -86,16 +88,29 @@ pub fn parse_tag(code: &mut Code) -> ParsedTag {
       // End of tag.
       break;
     };
-    let mut attr_name = Vec::new();
+    let attr_start = code.take_checkpoint();
+    let mut template_attr_name = code.shift_template();
     // An attribute name can start with `=`, but ends at the next whitespace, `=`, `/`, or `>`.
-    if let Some(c) = code.shift_if_next_not_in_lookup(WHITESPACE_OR_SLASH) {
-      attr_name.push(c);
-    };
-    attr_name.extend_from_slice(
-      code.slice_and_shift_while_not_in_lookup(WHITESPACE_OR_SLASH_OR_EQUALS_OR_RIGHT_CHEVRON),
-    );
+    if !template_attr_name {
+      code.shift_if_next_not_in_lookup(WHITESPACE_OR_SLASH);
+    }
+    if code.opts.treat_brace_as_opaque || code.opts.treat_chevron_percent_as_opaque {
+      while !code.at_end() && !WHITESPACE_OR_SLASH_OR_EQUALS_OR_RIGHT_CHEVRON[code.as_slice()[0]] {
+        if code.shift_template() {
+          template_attr_name = true;
+        } else {
+          code.shift(1);
+        }
+      }
+    } else {
+      code.slice_and_shift_while_not_in_lookup(WHITESPACE_OR_SLASH_OR_EQUALS_OR_RIGHT_CHEVRON);
+    }
+    let mut attr_name = code.slice_since(attr_start).to_vec();
     debug_assert!(!attr_name.is_empty());
-    attr_name.make_ascii_lowercase();
+    if !template_attr_name {
+      attr_name.make_ascii_lowercase();
+    }
+
     // See comment for WHITESPACE_OR_SLASH in codepoints.ts for details of complex attr parsing.
     code.shift_while_in_lookup(WHITESPACE);
     let has_value = code.shift_if_next(b'=');
@@ -115,10 +130,7 @@ pub fn parse_tag(code: &mut Code) -> ParsedTag {
         None => NOT_UNQUOTED_ATTR_VAL_CHAR,
         _ => unreachable!(),
       };
-      let attr_value = decode_entities(
-        code.slice_and_shift_while_not_in_lookup(attr_delim_pred),
-        true,
-      );
+      let attr_value = decode_entities(code.slice_and_shift_attribute_value(attr_delim_pred), true);
       if let Some(c) = attr_delim {
         // It might not be next if EOF (i.e. attribute value not closed).
         code.shift_if_next(c);
@@ -130,8 +142,11 @@ pub fn parse_tag(code: &mut Code) -> ParsedTag {
     };
     attributes.insert(attr_name, attr_value);
   }
+  let source = code.slice_since(start);
+  let has_template = code.opts.contains_template_syntax(source);
   ParsedTag {
     attributes,
+    raw_opening_tag: has_template.then(|| source.to_vec()),
     name: elem_name,
     self_closing,
   }
@@ -142,6 +157,7 @@ pub fn parse_element(code: &mut Code, ns: Namespace, parent: &[u8]) -> NodeData 
   let ParsedTag {
     name: elem_name,
     attributes,
+    raw_opening_tag,
     self_closing,
   } = parse_tag(code);
 
@@ -160,6 +176,7 @@ pub fn parse_element(code: &mut Code, ns: Namespace, parent: &[u8]) -> NodeData 
   {
     return NodeData::Element {
       attributes,
+      raw_opening_tag,
       children: Vec::new(),
       closing_tag: ElementClosingTag::SelfClosing,
       name: elem_name,
@@ -170,6 +187,7 @@ pub fn parse_element(code: &mut Code, ns: Namespace, parent: &[u8]) -> NodeData 
   if VOID_TAGS.contains(elem_name.as_slice()) {
     return NodeData::Element {
       attributes,
+      raw_opening_tag,
       children: Vec::new(),
       closing_tag: ElementClosingTag::Void,
       name: elem_name,
@@ -182,6 +200,10 @@ pub fn parse_element(code: &mut Code, ns: Namespace, parent: &[u8]) -> NodeData 
     closing_tag_omitted,
     children,
   } = match (ns, elem_name.as_slice()) {
+    // A templated header can change the script MIME type after minification.
+    (_, b"script") if raw_opening_tag.is_some() => {
+      parse_script_content(code, ScriptOrStyleLang::Data)
+    }
     (_, b"script") => match attributes.get(b"type".as_ref()) {
       Some(typ) if typ.as_slice() == b"module" => {
         parse_script_content(code, ScriptOrStyleLang::JSModule)
@@ -204,6 +226,7 @@ pub fn parse_element(code: &mut Code, ns: Namespace, parent: &[u8]) -> NodeData 
 
   NodeData::Element {
     attributes,
+    raw_opening_tag,
     children,
     closing_tag: if closing_tag_omitted {
       ElementClosingTag::Omitted

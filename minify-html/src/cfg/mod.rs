@@ -24,11 +24,17 @@ pub struct Cfg {
   pub minify_doctype: bool,
   /// Minify JavaScript in `<script>` tags using [minify-js](https://github.com/wilsonzlin/minify-js).
   pub minify_js: bool,
-  /// When `{{`, `{#`, or `{%` are seen in content, all source code until the subsequent matching closing `}}`, `#}`, or `%}` respectively gets piped through untouched.
+  /// Preserve `{{ ... }}`, nested `{# ... #}`, and `{% ... %}` syntax, including raw blocks.
+  /// Inputs containing template syntax use a token-preserving path: explicit tags and literal
+  /// text whitespace/entities are retained, without inferring an HTML tree across branches.
+  /// Literal HTML start tags, comments, and doctypes are still minified. Template-bearing
+  /// start tags and rawtext/RCDATA bodies remain verbatim; foreign headers are retained
+  /// when their namespace cannot be determined safely.
   pub preserve_brace_template_syntax: bool,
-  /// When `<%` is seen in content, all source code until the subsequent matching closing `%>` gets piped through untouched.
+  /// Preserve `<% ... %>` syntax using the same token-preserving path as brace templates.
+  /// Attribute templates are treated as opaque, including quoted strings inside expressions.
   pub preserve_chevron_percent_template_syntax: bool,
-  /// Preserve [Edge Side Includes](https://www.w3.org/TR/esi-lang/) markup (any tag in the `esi:` namespace, such as `<esi:include>`). ESI tags are XML elements that an edge proxy resolves before a browser ever sees them, so they're written using XML syntax: self-closing tags like `<esi:include src="/a" />` are honoured as empty elements instead of being parsed as HTML opening tags, and their attribute values are always left quoted so that XML-based ESI processors can still parse them.
+  /// Preserve [Edge Side Includes](https://www.w3.org/TR/esi-lang/) markup (any tag in the `esi:` namespace, such as `<esi:include>`). ESI tags are XML elements that an edge proxy resolves before a browser ever sees them, so they're written using XML syntax: self-closing tags like `<esi:include src="/a" />` are honoured as empty elements instead of being parsed as HTML opening tags, and their attribute values (including empty ones) are always left quoted so that XML-based ESI processors can still parse them. ESI comments (`<!--esi ... -->`) are also retained.
   pub preserve_esi_tags: bool,
   /// Remove all bangs.
   pub remove_bangs: bool,

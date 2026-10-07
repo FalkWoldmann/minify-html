@@ -75,6 +75,8 @@ pub enum NodeData {
   },
   Element {
     attributes: AHashMap<Vec<u8>, AttrVal>,
+    // Template-bearing start tags must retain attribute order, quotes, and source expressions.
+    raw_opening_tag: Option<Vec<u8>>,
     children: Vec<NodeData>,
     // If the source doesn't have a closing tag, then we can't add one, as otherwise output could be longer than source.
     closing_tag: ElementClosingTag,
@@ -129,6 +131,7 @@ impl Debug for NodeData {
         .finish(),
       NodeData::Element {
         attributes,
+        raw_opening_tag,
         children,
         closing_tag,
         name,
@@ -143,6 +146,7 @@ impl Debug for NodeData {
           }
           out
         })
+        .field("raw_opening_tag", raw_opening_tag)
         .field("children", children)
         .field("closing_tag", closing_tag)
         .field(

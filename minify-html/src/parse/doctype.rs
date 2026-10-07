@@ -9,15 +9,15 @@ pub fn parse_doctype(code: &mut Code) -> NodeData {
   code.shift_while_in_lookup(WHITESPACE);
   code.shift_if_next_seq_case_insensitive(b"html");
   code.shift_while_in_lookup(WHITESPACE);
-  let (len, matched) = match memchr(b'>', code.as_slice()) {
-    Some(m) => (m, 1),
-    None => (code.rem(), 0),
+  let data = if code.opts.treat_brace_as_opaque || code.opts.treat_chevron_percent_as_opaque {
+    code.slice_and_shift_template_aware_until(b">").to_vec()
+  } else {
+    let len = memchr(b'>', code.as_slice()).unwrap_or(code.rem());
+    code.copy_and_shift(len)
   };
-  let data = code.copy_and_shift(len);
-  // It might be EOF.
-  code.shift(matched);
+  let ended = code.shift_if_next(b'>');
   NodeData::Doctype {
     legacy: data,
-    ended: matched > 0,
+    ended,
   }
 }

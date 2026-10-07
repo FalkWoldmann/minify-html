@@ -1,9 +1,11 @@
+use crate::ast::ElementClosingTag;
 use crate::ast::NodeData;
 use crate::entity::decode::decode_entities;
 use crate::parse::bang::parse_bang;
 use crate::parse::comment::parse_comment;
 use crate::parse::content::ContentType::*;
 use crate::parse::doctype::parse_doctype;
+use crate::parse::element::is_esi_tag;
 use crate::parse::element::parse_element;
 use crate::parse::element::parse_tag;
 use crate::parse::element::peek_tag_name;
@@ -153,18 +155,164 @@ static CONTENT_TYPE_MATCHER_OPAQUE_CP: Lazy<(AhoCorasick, Vec<ContentType>)> =
 static CONTENT_TYPE_MATCHER_OPAQUE_BRACE_CP: Lazy<(AhoCorasick, Vec<ContentType>)> =
   Lazy::new(|| build_content_type_matcher(true, true));
 
-static CLOSING_BRACE_BRACE: Lazy<AhoCorasick> =
-  Lazy::new(|| AhoCorasickBuilder::new().build(["}}"]).unwrap());
-static CLOSING_BRACE_HASH: Lazy<AhoCorasick> =
-  Lazy::new(|| AhoCorasickBuilder::new().build(["#}"]).unwrap());
-static CLOSING_BRACE_PERCENT: Lazy<AhoCorasick> =
-  Lazy::new(|| AhoCorasickBuilder::new().build(["%}"]).unwrap());
-static CLOSING_CHEVRON_PERCENT: Lazy<AhoCorasick> =
-  Lazy::new(|| AhoCorasickBuilder::new().build(["%>"]).unwrap());
+fn content_type_matcher(code: &Code) -> &'static (AhoCorasick, Vec<ContentType>) {
+  match (
+    code.opts.treat_brace_as_opaque,
+    code.opts.treat_chevron_percent_as_opaque,
+  ) {
+    (false, false) => &CONTENT_TYPE_MATCHER,
+    (true, false) => &CONTENT_TYPE_MATCHER_OPAQUE_BRACE,
+    (false, true) => &CONTENT_TYPE_MATCHER_OPAQUE_CP,
+    (true, true) => &CONTENT_TYPE_MATCHER_OPAQUE_BRACE_CP,
+  }
+}
 
 pub struct ParsedContent {
   pub children: Vec<NodeData>,
   pub closing_tag_omitted: bool,
+}
+
+// A source template is not an HTML tree: mutually exclusive branches can open
+// and close different elements. Keep its token order and all text boundaries,
+// while still applying the ordinary minifier to literal HTML opening tags.
+pub fn parse_template_content(code: &mut Code) -> ParsedContent {
+  let mut nodes = Vec::new();
+  let matcher = content_type_matcher(code);
+  let mut foreign_depth = 0usize;
+  let mut uncertain_foreign = false;
+  while !code.at_end() {
+    let (text_len, typ) = match matcher.0.find(code.as_slice()) {
+      Some(m) => (m.start(), matcher.1[m.pattern()]),
+      None => (code.rem(), Text),
+    };
+    if text_len != 0 {
+      nodes.push(NodeData::Opaque {
+        raw_source: code.copy_and_shift(text_len),
+      });
+    }
+    match typ {
+      Text => break,
+      OpeningTag => {
+        let start = code.take_checkpoint();
+        let mut tag = parse_tag(code);
+        let foreign_root = matches!(tag.name.as_slice(), b"svg" | b"math");
+        let foreign = foreign_depth != 0 || uncertain_foreign || foreign_root;
+        if foreign && code.opts.contains_template_syntax(code.slice_since(start)) {
+          // A directive in foreign markup can change the namespace in later
+          // branches. Retain subsequent headers instead of guessing a context.
+          uncertain_foreign = true;
+        }
+        if (foreign || matches!(tag.name.as_slice(), b"html" | b"head"))
+          && tag.raw_opening_tag.is_none()
+        {
+          tag.raw_opening_tag = Some(code.slice_since(start).to_vec());
+        }
+        if foreign_root && !tag.self_closing {
+          foreign_depth += 1;
+        }
+        let special_content = matches!(
+          tag.name.as_slice(),
+          b"title"
+            | b"textarea"
+            | b"script"
+            | b"style"
+            | b"xmp"
+            | b"iframe"
+            | b"noembed"
+            | b"noframes"
+            | b"noscript"
+        );
+        let plaintext = tag.name == b"plaintext";
+        let closing_tag = if tag.self_closing
+          && (foreign || (code.opts.treat_esi_tags_as_self_closable && is_esi_tag(&tag.name)))
+        {
+          ElementClosingTag::SelfClosing
+        } else if VOID_TAGS.contains(tag.name.as_slice()) {
+          ElementClosingTag::Void
+        } else {
+          ElementClosingTag::Omitted
+        };
+        let body = if special_content && closing_tag == ElementClosingTag::Omitted {
+          Some(code.slice_and_shift_special_content(&tag.name).to_vec())
+        } else if plaintext {
+          Some(code.copy_and_shift(code.rem()))
+        } else {
+          None
+        };
+        nodes.push(NodeData::Element {
+          attributes: tag.attributes,
+          raw_opening_tag: tag.raw_opening_tag,
+          children: Vec::new(),
+          closing_tag,
+          name: tag.name,
+          namespace: Namespace::Html,
+          next_sibling_element_name: Vec::new(),
+        });
+        if let Some(raw_source) = body {
+          nodes.push(NodeData::Opaque { raw_source });
+        }
+      }
+      ClosingTag => {
+        let start = code.take_checkpoint();
+        let tag = parse_tag(code);
+        if matches!(tag.name.as_slice(), b"svg" | b"math") {
+          foreign_depth = foreign_depth.saturating_sub(1);
+        }
+        nodes.push(NodeData::Opaque {
+          raw_source: code.slice_since(start).to_vec(),
+        });
+      }
+      kind @ (Instruction | Bang | Doctype) => {
+        let start = code.take_checkpoint();
+        let node = match kind {
+          Instruction => parse_instruction(code),
+          Bang => parse_bang(code),
+          Doctype => parse_doctype(code),
+          _ => unreachable!(),
+        };
+        if code.opts.contains_template_syntax(code.slice_since(start)) {
+          nodes.push(NodeData::Opaque {
+            raw_source: code.slice_since(start).to_vec(),
+          });
+        } else {
+          nodes.push(node);
+        }
+      }
+      Comment => {
+        // Removing a comment between raw text tokens can create a new entity
+        // or HTML tag (e.g. `&am<!-- -->p;`). Only remove at a safe boundary.
+        let safe_before = match nodes.last() {
+          None | Some(NodeData::Element { .. }) => true,
+          Some(NodeData::Opaque { raw_source }) => raw_source.ends_with(b">"),
+          _ => false,
+        };
+        let start = code.take_checkpoint();
+        let comment = parse_comment(code);
+        if safe_before {
+          nodes.push(comment);
+        } else {
+          nodes.push(NodeData::Opaque {
+            raw_source: code.slice_since(start).to_vec(),
+          });
+        }
+      }
+      OpaqueBraceBrace | OpaqueBraceHash | OpaqueBracePercent | OpaqueChevronPercent => {
+        if foreign_depth != 0 {
+          uncertain_foreign = true;
+        }
+        let start = code.take_checkpoint();
+        code.shift_template();
+        nodes.push(NodeData::Opaque {
+          raw_source: code.slice_since(start).to_vec(),
+        });
+      }
+      IgnoredTag | MalformedLeftChevronSlash | OmittedClosingTag => unreachable!(),
+    }
+  }
+  ParsedContent {
+    children: nodes,
+    closing_tag_omitted: true,
+  }
 }
 
 // Use empty slice for `grandparent` or `parent` if none.
@@ -177,15 +325,7 @@ pub fn parse_content(
   // We assume the closing tag has been omitted until we see one explicitly before EOF (or it has been omitted as per the spec).
   let mut closing_tag_omitted = true;
   let mut nodes = Vec::<NodeData>::new();
-  let matcher = match (
-    code.opts.treat_brace_as_opaque,
-    code.opts.treat_chevron_percent_as_opaque,
-  ) {
-    (false, false) => &CONTENT_TYPE_MATCHER,
-    (true, false) => &CONTENT_TYPE_MATCHER_OPAQUE_BRACE,
-    (false, true) => &CONTENT_TYPE_MATCHER_OPAQUE_CP,
-    (true, true) => &CONTENT_TYPE_MATCHER_OPAQUE_BRACE_CP,
-  };
+  let matcher = content_type_matcher(code);
   loop {
     let (text_len, mut typ) = match matcher.0.find(code.as_slice()) {
       Some(m) => (m.start(), matcher.1[m.pattern()]),
@@ -246,22 +386,11 @@ pub fn parse_content(
         break;
       }
       IgnoredTag => drop(parse_tag(code)),
-      e @ (OpaqueBraceBrace | OpaqueBraceHash | OpaqueBracePercent | OpaqueChevronPercent) => {
-        let closing_matcher = match e {
-          OpaqueBraceBrace => &CLOSING_BRACE_BRACE,
-          OpaqueBraceHash => &CLOSING_BRACE_HASH,
-          OpaqueBracePercent => &CLOSING_BRACE_PERCENT,
-          OpaqueChevronPercent => &CLOSING_CHEVRON_PERCENT,
-          _ => unreachable!(),
-        };
-        // We must skip past opening as otherwise something like `{%}` matches both opening and closing delimiters.
-        let len = match closing_matcher.find(&code.as_slice()[2..]) {
-          // It's probably safer to assume it's implicitly closed by EOF instead of reinterpreting as literal HTML text and possibly mangling template code.
-          Some(m) => m.end(),
-          None => code.rem(),
-        };
+      OpaqueBraceBrace | OpaqueBraceHash | OpaqueBracePercent | OpaqueChevronPercent => {
+        let start = code.take_checkpoint();
+        code.shift_template();
         nodes.push(NodeData::Opaque {
-          raw_source: code.copy_and_shift(len),
+          raw_source: code.slice_since(start).to_vec(),
         });
       }
     };

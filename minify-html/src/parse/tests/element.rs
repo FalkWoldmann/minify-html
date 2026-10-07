@@ -44,6 +44,7 @@ fn test_parse_tag() {
       map.insert(b"w".to_vec(), val(b"//"));
       map
     },
+    raw_opening_tag: None,
     name: b"input".to_vec(),
     self_closing: false,
   });
@@ -59,6 +60,7 @@ fn test_parse_element() {
       map.insert(b"b".to_vec(), val(br#"\"c\""#));
       map
     },
+    raw_opening_tag: None,
     children: vec![],
     closing_tag: ElementClosingTag::Present,
     name: b"a".to_vec(),

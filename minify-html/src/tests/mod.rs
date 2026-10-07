@@ -84,17 +84,286 @@ fn test_preserve_template_brace_syntax() {
   cfg.preserve_brace_template_syntax = true;
   eval_with_cfg(
     b"<p> {{   hello    world! %}  {%}{#} echo '  </p><P><script>  let x = 1; //'  }} </p>",
-    b"<p>{{   hello    world! %}  {%}{#} echo '  </p><P><script>  let x = 1; //'  }}",
+    b"<p> {{   hello    world! %}  {%}{#} echo '  </p><P><script>  let x = 1; //'  }} </p>",
     &cfg,
   );
   eval_with_cfg(
     b"<p> {%   hello    world! %}  {%}{#} echo '  </p><P><script>  let x = 1; //'  %} </p>",
-    b"<p>{%   hello    world! %} {%}{#} echo '  </p><P><script>  let x = 1; //'  %}",
+    b"<p> {%   hello    world! %}  {%}{#} echo '  </p><P><script>  let x = 1; //'  %} </p>",
     &cfg,
   );
   eval_with_cfg(
     b"<p> {#   hello    world! #}  {#}{# echo '  </p><P><script>  let x = 1; //'  #} </p>",
-    b"<p>{#   hello    world! #} {#}{# echo '  </p><P><script>  let x = 1; //'  #}",
+    b"<p> {#   hello    world! #}  {#}{# echo '  </p><P><script>  let x = 1; //'  #} </p>",
+    &cfg,
+  );
+}
+
+#[test]
+fn should_preserve_askama_control_flow_inside_start_tags() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  let source = br#"<button
+{% match legacy_sheet_url %}
+{% when Some with (sheet_url) %}
+    data-url='{{ sheet_url | base64_encode }}'
+{% when None %}
+    data-benefit-id="{{ benefit_id }}"
+{% endmatch %}
+    aria-label="Details zu {{ campaign_title }}"
+>{{ text }}</button>"#;
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_keep_dynamic_attribute_values_quoted() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    br#"<span title="{{title}}">{{ text }}</span>"#,
+    br#"<span title="{{title}}">{{ text }}</span>"#,
+    &cfg,
+  );
+}
+
+#[test]
+fn should_preserve_quotes_and_chevrons_inside_template_expressions() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  let source = br#"<a title="{{ choose("a>b", "it's quoted") }}" data-x="last">{{ text }}</a>"#;
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_preserve_askama_whitespace_controls_and_repeated_blocks() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  let source = br#"<div {%~ if first ~%}data-first="yes"{%~ endif ~%} {%~ if second ~%}data-second="yes"{%~ endif ~%}>{{ text }}</div>"#;
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_preserve_esi_template_attributes_without_swallowing_siblings() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    preserve_esi_tags: true,
+    ..Cfg::default()
+  };
+  let source = br#"<esi:include src="{{url}}" /><span>after</span>"#;
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_still_minify_static_tags_with_template_preservation_enabled() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    br#"<button title="someValue" data-id="42">  text  </button>"#,
+    br#"<button data-id=42 title=someValue>text</button>"#,
+    &cfg,
+  );
+  eval_with_cfg(
+    br#"<p>{{name}}</p><button title="someValue" data-id="42">  text  </button><!-- remove -->"#,
+    br#"<p>{{name}}</p><button data-id=42 title=someValue>  text  </button>"#,
+    &cfg,
+  );
+}
+
+#[test]
+fn should_preserve_an_unterminated_attribute_template_without_panicking() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(b"<div {%", b"<div {%", &cfg);
+}
+
+#[test]
+fn should_preserve_template_strings_containing_closing_delimiters() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  let source = br###"<a title="{{ choose("}}", "\"quoted\"", "a>b") }}">text</a>"###;
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_preserve_nested_comments_inside_attributes() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  let source =
+    br#"<button {# outer {# nested #} "quoted" > comment #} data-value="{{value}}">text</button>"#;
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_preserve_braced_expressions_inside_attributes() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  let source = br#"<div data-value="{{ {"key": "value"} }}">text</div>"#;
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_preserve_chevron_templates_in_unquoted_attribute_values() {
+  let cfg = Cfg {
+    preserve_chevron_percent_template_syntax: true,
+    ..Cfg::default()
+  };
+  let source = br#"<div title=<%= choose("a>b", "text") %> data-other="value">text</div>"#;
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_keep_svg_start_and_end_tag_case_consistent() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  let source = br#"<svg><linearGradient id="{{id}}"></linearGradient></svg>"#;
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_not_guess_a_script_type_selected_by_a_template() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    minify_js: true,
+    ..Cfg::default()
+  };
+  let source = br#"<script {% if json %}type="application/json"{% else %}type="module"{% endif %}>[1, 2]</script>"#;
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_preserve_quoted_delimiters_and_braced_expressions_in_content() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    br###"<div>{{ choose("}}", "\"<B title='x'>  kept  </B>\"", {"key": "value"}) }}{% if choose("%}", "<B title='y'>") %}yes{% endif %}</div><a title="value">next</a>"###,
+    br###"<div>{{ choose("}}", "\"<B title='x'>  kept  </B>\"", {"key": "value"}) }}{% if choose("%}", "<B title='y'>") %}yes{% endif %}</div><a title=value>next</a>"###,
+    &cfg,
+  );
+}
+
+#[test]
+fn should_preserve_nested_template_comments_in_content() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    br#"<div>{# outer {# inner #} <B title="literal">  text  </B> #}{{value}}</div><span title="after">after</span>"#,
+    br#"<div>{# outer {# inner #} <B title="literal">  text  </B> #}{{value}}</div><span title=after>after</span>"#,
+    &cfg,
+  );
+}
+
+#[test]
+fn should_keep_split_branch_opening_and_closing_tags_in_order() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    br#"{% if first %}<section class="first">{% else %}<aside class="other">{% endif %}body{% if first %}</section>{% else %}</aside>{% endif %}<a title="after">after</a>"#,
+    br#"{% if first %}<section class=first>{% else %}<aside class=other>{% endif %}body{% if first %}</section>{% else %}</aside>{% endif %}<a title=after>after</a>"#,
+    &cfg,
+  );
+  // Optional closing tags cannot be omitted based on a combined branch tree.
+  let optional_tags = b"<ul>{% if first %}<li>{% else %}<li>{% endif %}one{% if first %}</li>{% else %}</li>{% endif %}<li>two</li></ul>";
+  eval_with_cfg(optional_tags, optional_tags, &cfg);
+  let document_branches = b"{% if first %}<html><head>{% else %}<html><head>{% endif %}<title>{{title}}</title></head><body>body</body></html>";
+  eval_with_cfg(document_branches, document_branches, &cfg);
+}
+
+#[test]
+fn should_keep_inline_text_spacing_next_to_dynamic_expressions() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  let source = b"<div><span>Hello</span> {{ name }}  {{ more }}</div><p>  {{- controlled -}}  {%~ if visible ~%} visible {%~ endif ~%}</p>";
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_preserve_raw_block_literal_bytes_and_resume_html_minification() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    br###"<div title="literal">{%~ raw ~%}<B title="x &amp;">  {{ "}}" }} {% invalid " {% endrawx %}  </B>{%~ endraw ~%}</div><img src="/after">"###,
+    br###"<div title=literal>{%~ raw ~%}<B title="x &amp;">  {{ "}}" }} {% invalid " {% endrawx %}  </B>{%~ endraw ~%}</div><img src=/after>"###,
+    &cfg,
+  );
+}
+
+#[test]
+fn should_preserve_template_strings_in_rcdata_and_rawtext_bodies() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    minify_js: true,
+    minify_css: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    br###"<title>{{ choose("</title>", "&amp; <b>x</b>") }}</title><textarea>{{ choose("</textarea>", "&amp; <b>x</b>") }}</textarea><script>{{ choose("</script>", "&amp; <b>x</b>") }}</script><style>{{ choose("</style>", "&amp; <b>x</b>") }}</style><span title="after">after</span>"###,
+    br###"<title>{{ choose("</title>", "&amp; <b>x</b>") }}</title><textarea>{{ choose("</textarea>", "&amp; <b>x</b>") }}</textarea><script>{{ choose("</script>", "&amp; <b>x</b>") }}</script><style>{{ choose("</style>", "&amp; <b>x</b>") }}</style><span title=after>after</span>"###,
+    &cfg,
+  );
+}
+
+#[test]
+fn should_preserve_template_expressions_inside_html_comments() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    br###"<!-- {{ choose("-->", "<B title='literal'>") }} --><span title="after">after</span>"###,
+    br###"<!-- {{ choose("-->", "<B title='literal'>") }} --><span title=after>after</span>"###,
+    &cfg,
+  );
+  let split_entity = b"<p>{{name}}&am<!-- boundary -->p;</p>";
+  eval_with_cfg(split_entity, split_entity, &cfg);
+  let whitespace_control = b"<p>&am <!-- boundary -->{{- suffix}}</p>";
+  eval_with_cfg(whitespace_control, whitespace_control, &cfg);
+}
+
+#[test]
+fn should_preserve_empty_esi_values_comments_and_following_siblings() {
+  let mut cfg = Cfg {
+    preserve_esi_tags: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    br#"<!--esi <esi:include src=""/> --><esi:include src="" alt="" /><span>after</span>"#,
+    br#"<!--esi <esi:include src=""/> --><esi:include alt="" src=""/><span>after</span>"#,
+    &cfg,
+  );
+  cfg.preserve_brace_template_syntax = true;
+  eval_with_cfg(
+    br#"<esi:include src="" /><span>{{after}}</span>"#,
+    br#"<esi:include src=""/><span>{{after}}</span>"#,
     &cfg,
   );
 }
@@ -105,7 +374,7 @@ fn test_preserve_template_chevron_percent_syntax() {
   cfg.preserve_chevron_percent_template_syntax = true;
   eval_with_cfg(
     b"<p> <%   hello    world! #}  {#}{# echo '  </p><P><script>  let x = 1; //'  %> </p>",
-    b"<p><%   hello    world! #}  {#}{# echo '  </p><P><script>  let x = 1; //'  %>",
+    b"<p> <%   hello    world! #}  {#}{# echo '  </p><P><script>  let x = 1; //'  %> </p>",
     &cfg,
   );
 }
