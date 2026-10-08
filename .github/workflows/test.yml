@@ -14,9 +14,8 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      # oxc requires a recent Rust, see `rust-version` in Cargo.toml.
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -24,15 +23,32 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       # Covers the bench and debug crates as well, so a change to the Rust API that
-      # doesn't compile everywhere is caught before a release.
+      # doesn't compile everywhere is caught before a release. `--locked` fails if
+      # Cargo.lock is out of date with the manifests.
       - name: Test
-        run: cargo test --workspace
+        run: cargo test --workspace --locked
+
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Keep in sync with `rust-version` in Cargo.toml, which oxc sets the floor for.
+      - name: Install Rust 1.95
+        uses: dtolnay/rust-toolchain@1.95
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check
+        run: cargo check --workspace --all-targets --locked
 
   fmt:
     name: Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Default rustfmt settings; nightly matches the toolchain used locally.
       - name: Install nightly rustfmt
