@@ -870,7 +870,6 @@ fn test_unmatched_closing_tag() {
 }
 
 #[test]
-// NOTE: Keep inputs in sync with onepass variant. Outputs are different as main variant reorders attributes.
 fn test_space_between_attrs_minification() {
     eval_with_noncompliant(
         b"<div a=\" \" b=\" \"></div>",

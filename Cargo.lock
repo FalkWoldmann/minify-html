@@ -697,30 +697,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "minify-html-onepass"
-version = "0.18.1"
-dependencies = [
- "ahash 0.8.12",
- "aho-corasick",
- "lightningcss",
- "memchr",
- "minify-html-common",
- "oxc_allocator",
- "oxc_codegen",
- "oxc_minifier",
- "oxc_parser",
- "oxc_span",
-]
-
-[[package]]
-name = "minify-html-onepass-bench"
-version = "0.0.1"
-dependencies = [
- "minify-html-onepass",
- "serde_json",
-]
-
-[[package]]
 name = "miniz_oxide"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

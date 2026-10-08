@@ -2,7 +2,7 @@
 
 ## Pending
 
-- Remove the Deno, Java, Node.js, Python (including onepass), Ruby and WASM bindings, and the `minhtml` CLI. Only the Rust crates remain.
+- Remove the Deno, Java, Node.js, Python (including onepass), Ruby and WASM bindings, the `minhtml` CLI and the `minify-html-onepass` crate. Only the `minify-html` library remains.
 - Switch to Rust 2024 (requires Rust 1.95 or later) and move shared package metadata and dependencies into the workspace manifest. `minify_html_common::gen` is now `r#gen`, as `gen` is a reserved keyword in 2024.
 - Replace `once_cell` with `std::sync::LazyLock`.
 - Add `preserve_inline_whitespace` option, which minifies with the template mode whitespace rules even when the source has no template syntax, so rendered HTML keeps separators between inline elements.

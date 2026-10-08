@@ -11,7 +11,6 @@ const AVERAGE_SIZES_GRAPH = path.join(GRAPHS_DIR, "average-sizes.png");
 
 const speedColours = {
   "minify-html": "#2e61bd",
-  "minify-html-onepass": "#222",
 };
 const defaultSpeedColour = "rgb(188, 188, 188)";
 
@@ -145,12 +144,7 @@ const renderChart = (cfg, width, height) =>
   await fs.mkdir(GRAPHS_DIR, { recursive: true });
 
   const res = results.calculate();
-  const speedMinifiers = [
-    "html-minifier",
-    "minimize",
-    "minify-html",
-    "minify-html-onepass",
-  ];
+  const speedMinifiers = ["html-minifier", "minimize", "minify-html"];
   const sizeMinifiers = ["minimize", "html-minifier", "minify-html"];
   const inputs = Object.keys(res.inputSizes).sort();
 
