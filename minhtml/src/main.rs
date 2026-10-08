@@ -87,6 +87,10 @@ struct Cli {
   #[structopt(long)]
   preserve_esi_tags: bool,
 
+  /// Minify with the same whitespace rules as template inputs, even without template syntax. Separators between inline elements are kept, and closing tags are never omitted. Useful for HTML rendered from a template.
+  #[structopt(long)]
+  preserve_inline_whitespace: bool,
+
   /// Remove all bangs.
   #[structopt(long)]
   remove_bangs: bool,
@@ -131,6 +135,7 @@ fn main() {
     preserve_brace_template_syntax: args.preserve_brace_template_syntax,
     preserve_chevron_percent_template_syntax: args.preserve_chevron_percent_template_syntax,
     preserve_esi_tags: args.preserve_esi_tags,
+    preserve_inline_whitespace: args.preserve_inline_whitespace,
     remove_bangs: args.remove_bangs,
     remove_processing_instructions: args.remove_processing_instructions,
   });

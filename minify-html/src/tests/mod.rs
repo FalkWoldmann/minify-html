@@ -923,3 +923,82 @@ fn test_style_attr_minification() {
   // `style` attributes are removed if fully minified away.
   eval_with_css_min(br#"<div style="  /*  */   "></div>"#, br#"<div></div>"#);
 }
+
+#[test]
+fn should_keep_inline_separators_in_rendered_html_with_preserve_inline_whitespace() {
+  let source = b"<div>\n  <span>Hello</span> <span>world</span>\n</div>";
+  // The normal minifier drops whitespace-only text in a `div`, joining the words.
+  eval_with_cfg(
+    source,
+    b"<div><span>Hello</span><span>world</span></div>",
+    &Cfg::new(),
+  );
+  let cfg = Cfg {
+    preserve_inline_whitespace: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    source,
+    b"<div> <span>Hello</span> <span>world</span> </div>",
+    &cfg,
+  );
+}
+
+#[test]
+fn should_keep_inline_separators_when_rendered_html_follows_a_template_pass() {
+  let compile_time = Cfg {
+    keep_closing_tags: true,
+    keep_html_and_head_opening_tags: true,
+    preserve_brace_template_syntax: true,
+    preserve_esi_tags: true,
+    ..Cfg::default()
+  };
+  let runtime = Cfg {
+    preserve_inline_whitespace: true,
+    ..compile_time.clone()
+  };
+  let template = minify(
+    b"<section>\n  <div><span>{{ first }}</span> <span>{{ second }}</span></div>\n</section>",
+    &compile_time,
+  );
+  assert_eq!(
+    from_utf8(&template).unwrap(),
+    "<section><div><span>{{ first }}</span> <span>{{ second }}</span></div></section>",
+  );
+  let rendered = from_utf8(&template)
+    .unwrap()
+    .replace("{{ first }}", "Hello")
+    .replace("{{ second }}", "world");
+  assert_eq!(
+    from_utf8(&minify(rendered.as_bytes(), &runtime)).unwrap(),
+    "<section><div><span>Hello</span> <span>world</span></div></section>",
+  );
+}
+
+#[test]
+fn should_be_stable_across_repeated_preserve_inline_whitespace_passes() {
+  let cfg = Cfg {
+    keep_closing_tags: true,
+    keep_html_and_head_opening_tags: true,
+    preserve_esi_tags: true,
+    preserve_inline_whitespace: true,
+    ..Cfg::default()
+  };
+  let source = br#"<div>
+  <esi:include src="/a?x=1&amp;y=2" alt="" /><span>after</span> <b>bold</b>
+  <!--esi <esi:include src="/b"/> -->
+  <pre>
+  keep  this
+</pre>
+  <textarea>  raw  </textarea>
+  <script>  let a  =  1;  </script>
+  <p>one  &amp;  two</p>
+</div>"#;
+  let expected = r#"<div> <esi:include alt="" src="/a?x=1&amp;y=2"/><span>after</span> <b>bold</b> <!--esi <esi:include src="/b"/> --> <pre>
+  keep  this
+</pre> <textarea>  raw  </textarea> <script>let a  =  1;</script><p>one &amp; two</p></div>"#;
+  let once = minify(source, &cfg);
+  assert_eq!(from_utf8(&once).unwrap(), expected);
+  let twice = minify(&once, &cfg);
+  assert_eq!(from_utf8(&twice).unwrap(), expected);
+}

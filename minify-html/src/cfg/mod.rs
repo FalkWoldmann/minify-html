@@ -38,6 +38,13 @@ pub struct Cfg {
   pub preserve_chevron_percent_template_syntax: bool,
   /// Preserve [Edge Side Includes](https://www.w3.org/TR/esi-lang/) markup (any tag in the `esi:` namespace, such as `<esi:include>`). ESI tags are XML elements that an edge proxy resolves before a browser ever sees them, so they're written using XML syntax: self-closing tags like `<esi:include src="/a" />` are honoured as empty elements instead of being parsed as HTML opening tags, and their attribute values (including empty ones) are always left quoted so that XML-based ESI processors can still parse them. ESI comments (`<!--esi ... -->`) are also retained.
   pub preserve_esi_tags: bool,
+  /// Minify with the same whitespace rules as template inputs, even when the source contains no
+  /// template syntax. Use this for HTML rendered from a template, e.g. after a template was
+  /// already minified at compile time. Whitespace-only text is removed only between two
+  /// block-level elements, so separators between inline elements remain. Preformatted/raw
+  /// content and ESI markup are preserved as in template inputs, and closing tags are never
+  /// omitted.
+  pub preserve_inline_whitespace: bool,
   /// Remove all bangs.
   pub remove_bangs: bool,
   /// Remove all processing instructions.

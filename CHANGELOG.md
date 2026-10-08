@@ -2,6 +2,7 @@
 
 ## Pending
 
+- Add `preserve_inline_whitespace` option, which minifies with the template mode whitespace rules even when the source has no template syntax, so rendered HTML keeps separators between inline elements.
 - Compact template-bearing tag separators and normal HTML indentation without changing quoted JSON/attribute values, Askama whitespace controls, visible inline separators, preformatted/raw regions or ESI XML semantics.
 - Preserve Askama-style templates at compile time without guessing conditional HTML trees: retain dynamic attribute order/quotes, explicit closing tags, significant text spacing, nested comments, quoted delimiters, raw blocks and special-element bodies while minifying literal HTML opening tags.
 - In template mode, keep separators between inline elements like `select` and `picture`, keep quoted values intact after a templated tag name or an apostrophe in an unquoted value, keep minifying after `{% block %}` in a `<title>`, expressions in SVG and harmless raw blocks, stop a quote in a `<%# %>` comment from swallowing the rest of the file, and minify literal `<script>`/`<style>` bodies again. Note that any enabled template delimiter switches the whole document to template mode, which never omits closing tags.

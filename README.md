@@ -261,6 +261,8 @@ Each file is compacted as if it renders in normal flow. If a child `{% block %}`
 
 For Askama build-time preprocessing with ESI, enable `preserve_brace_template_syntax` and `preserve_esi_tags`, keep closing and HTML/head opening tags, and leave possibly-noncompliant minification disabled.
 
+Rendered output usually has no template syntax left, so it goes through the normal HTML minifier, which drops whitespace-only text inside containers like `div`. That joins `<span>Hello</span> <span>world</span>` into `Helloworld`. To minify rendered HTML with the same whitespace rules as its template, enable `preserve_inline_whitespace` (`--preserve-inline-whitespace` on the CLI). It uses this mode whether or not template syntax is found.
+
 ## Edge Side Includes
 
 [ESI](https://www.w3.org/TR/esi-lang/) markup is made up of XML elements in the `esi:` namespace that an edge proxy (e.g. Varnish, Akamai, Fastly) resolves before the response ever reaches a browser. Because it's XML and not HTML, an empty element is written with self-closing syntax:

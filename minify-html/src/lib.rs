@@ -40,7 +40,7 @@ mod tests;
 /// ```
 pub fn minify(src: &[u8], cfg: &Cfg) -> Vec<u8> {
   let mut code = Code::new_with_opts(src, ParseOpts::from(cfg));
-  let parsed = if code.opts.contains_template_syntax(src) {
+  let parsed = if cfg.preserve_inline_whitespace || code.opts.contains_template_syntax(src) {
     parse_template_content(&mut code)
   } else {
     parse_content(&mut code, Namespace::Html, EMPTY_SLICE, EMPTY_SLICE)
