@@ -2,64 +2,64 @@
 /// minification approach.
 #[derive(Clone, Default)]
 pub struct Cfg {
-  /// Allow unquoted attribute values in the output to contain characters prohibited by the [WHATWG specification](https://html.spec.whatwg.org/multipage/syntax.html#attributes-2). These will still be parsed correctly by almost all browsers.
-  pub allow_noncompliant_unquoted_attribute_values: bool,
-  /// Allow some minifications around entities that may not pass validation, but will still be parsed correctly by almost all browsers.
-  pub allow_optimal_entities: bool,
-  /// Allow removing_spaces between attributes when possible, which may not be spec compliant. These will still be parsed correctly by almost all browsers.
-  pub allow_removing_spaces_between_attributes: bool,
-  /// Do not omit closing tags when possible.
-  pub keep_closing_tags: bool,
-  /// Keep all comments.
-  pub keep_comments: bool,
-  /// Do not omit `<html>` and `<head>` opening tags when they don't have attributes.
-  pub keep_html_and_head_opening_tags: bool,
-  /// Keep `type=text` attribute name and value on `<input>` elements.
-  pub keep_input_type_text_attr: bool,
-  /// Keep SSI comments.
-  pub keep_ssi_comments: bool,
-  /// Minify CSS in `<style>` tags and `style` attributes using [https://github.com/parcel-bundler/lightningcss](lightningcss).
-  pub minify_css: bool,
-  /// Minify DOCTYPEs. Minified DOCTYPEs may not be spec compliant, but will still be parsed correctly by almost all browsers.
-  pub minify_doctype: bool,
-  /// Minify JavaScript in `<script>` tags using [minify-js](https://github.com/wilsonzlin/minify-js).
-  pub minify_js: bool,
-  /// Preserve `{{ ... }}`, nested `{# ... #}`, and `{% ... %}` syntax, including raw blocks.
-  /// Template inputs use a token-preserving path without inferring HTML trees across branches.
-  /// Normal HTML whitespace and attribute separators are compacted; quoted values, token
-  /// internals, significant inline separators and explicit closing tags remain intact.
-  /// Preformatted/raw content, rawtext/RCDATA and foreign or uncertain contexts retain whitespace.
-  /// Literal HTML start tags, safe comments and doctypes are still minified. Each file is
-  /// compacted as if it renders in normal flow, so a block, macro or include that a parent renders
-  /// inside `<pre>`, `<textarea>` or `<code>` loses its whitespace.
-  pub preserve_brace_template_syntax: bool,
-  /// Preserve `<% ... %>` syntax using the same token-preserving path as brace templates.
-  /// Attribute templates are treated as opaque, including quoted strings inside expressions.
-  pub preserve_chevron_percent_template_syntax: bool,
-  /// Preserve [Edge Side Includes](https://www.w3.org/TR/esi-lang/) markup (any tag in the `esi:` namespace, such as `<esi:include>`). ESI tags are XML elements that an edge proxy resolves before a browser ever sees them, so they're written using XML syntax: self-closing tags like `<esi:include src="/a" />` are honoured as empty elements instead of being parsed as HTML opening tags, and their attribute values (including empty ones) are always left quoted so that XML-based ESI processors can still parse them. ESI comments (`<!--esi ... -->`) are also retained.
-  pub preserve_esi_tags: bool,
-  /// Minify with the same whitespace rules as template inputs, even when the source contains no
-  /// template syntax. Use this for HTML rendered from a template, e.g. after a template was
-  /// already minified at compile time. Whitespace-only text is removed only between two
-  /// block-level elements, so separators between inline elements remain. Preformatted/raw
-  /// content and ESI markup are preserved as in template inputs, and closing tags are never
-  /// omitted.
-  pub preserve_inline_whitespace: bool,
-  /// Remove all bangs.
-  pub remove_bangs: bool,
-  /// Remove all processing instructions.
-  pub remove_processing_instructions: bool,
+    /// Allow unquoted attribute values in the output to contain characters prohibited by the [WHATWG specification](https://html.spec.whatwg.org/multipage/syntax.html#attributes-2). These will still be parsed correctly by almost all browsers.
+    pub allow_noncompliant_unquoted_attribute_values: bool,
+    /// Allow some minifications around entities that may not pass validation, but will still be parsed correctly by almost all browsers.
+    pub allow_optimal_entities: bool,
+    /// Allow removing_spaces between attributes when possible, which may not be spec compliant. These will still be parsed correctly by almost all browsers.
+    pub allow_removing_spaces_between_attributes: bool,
+    /// Do not omit closing tags when possible.
+    pub keep_closing_tags: bool,
+    /// Keep all comments.
+    pub keep_comments: bool,
+    /// Do not omit `<html>` and `<head>` opening tags when they don't have attributes.
+    pub keep_html_and_head_opening_tags: bool,
+    /// Keep `type=text` attribute name and value on `<input>` elements.
+    pub keep_input_type_text_attr: bool,
+    /// Keep SSI comments.
+    pub keep_ssi_comments: bool,
+    /// Minify CSS in `<style>` tags and `style` attributes using [https://github.com/parcel-bundler/lightningcss](lightningcss).
+    pub minify_css: bool,
+    /// Minify DOCTYPEs. Minified DOCTYPEs may not be spec compliant, but will still be parsed correctly by almost all browsers.
+    pub minify_doctype: bool,
+    /// Minify JavaScript in `<script>` tags using [minify-js](https://github.com/wilsonzlin/minify-js).
+    pub minify_js: bool,
+    /// Preserve `{{ ... }}`, nested `{# ... #}`, and `{% ... %}` syntax, including raw blocks.
+    /// Template inputs use a token-preserving path without inferring HTML trees across branches.
+    /// Normal HTML whitespace and attribute separators are compacted; quoted values, token
+    /// internals, significant inline separators and explicit closing tags remain intact.
+    /// Preformatted/raw content, rawtext/RCDATA and foreign or uncertain contexts retain whitespace.
+    /// Literal HTML start tags, safe comments and doctypes are still minified. Each file is
+    /// compacted as if it renders in normal flow, so a block, macro or include that a parent renders
+    /// inside `<pre>`, `<textarea>` or `<code>` loses its whitespace.
+    pub preserve_brace_template_syntax: bool,
+    /// Preserve `<% ... %>` syntax using the same token-preserving path as brace templates.
+    /// Attribute templates are treated as opaque, including quoted strings inside expressions.
+    pub preserve_chevron_percent_template_syntax: bool,
+    /// Preserve [Edge Side Includes](https://www.w3.org/TR/esi-lang/) markup (any tag in the `esi:` namespace, such as `<esi:include>`). ESI tags are XML elements that an edge proxy resolves before a browser ever sees them, so they're written using XML syntax: self-closing tags like `<esi:include src="/a" />` are honoured as empty elements instead of being parsed as HTML opening tags, and their attribute values (including empty ones) are always left quoted so that XML-based ESI processors can still parse them. ESI comments (`<!--esi ... -->`) are also retained.
+    pub preserve_esi_tags: bool,
+    /// Minify with the same whitespace rules as template inputs, even when the source contains no
+    /// template syntax. Use this for HTML rendered from a template, e.g. after a template was
+    /// already minified at compile time. Whitespace-only text is removed only between two
+    /// block-level elements, so separators between inline elements remain. Preformatted/raw
+    /// content and ESI markup are preserved as in template inputs, and closing tags are never
+    /// omitted.
+    pub preserve_inline_whitespace: bool,
+    /// Remove all bangs.
+    pub remove_bangs: bool,
+    /// Remove all processing instructions.
+    pub remove_processing_instructions: bool,
 }
 
 impl Cfg {
-  pub fn new() -> Cfg {
-    Cfg::default()
-  }
+    pub fn new() -> Cfg {
+        Cfg::default()
+    }
 
-  pub fn enable_possibly_noncompliant(&mut self) {
-    self.allow_noncompliant_unquoted_attribute_values = true;
-    self.allow_optimal_entities = true;
-    self.allow_removing_spaces_between_attributes = true;
-    self.minify_doctype = true;
-  }
+    pub fn enable_possibly_noncompliant(&mut self) {
+        self.allow_noncompliant_unquoted_attribute_values = true;
+        self.allow_optimal_entities = true;
+        self.allow_removing_spaces_between_attributes = true;
+        self.minify_doctype = true;
+    }
 }

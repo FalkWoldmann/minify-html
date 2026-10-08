@@ -3,13 +3,13 @@ use crate::ast::ElementClosingTag;
 use crate::ast::NodeData;
 use crate::ast::ScriptOrStyleLang;
 use crate::entity::decode::decode_entities;
-use crate::parse::content::parse_content;
+use crate::parse::Code;
 use crate::parse::content::ParsedContent;
+use crate::parse::content::parse_content;
 use crate::parse::script::parse_script_content;
 use crate::parse::style::parse_style_content;
 use crate::parse::textarea::parse_textarea_content;
 use crate::parse::title::parse_title_content;
-use crate::parse::Code;
 use ahash::AHashMap;
 use minify_html_common::r#gen::codepoints::ATTR_QUOTE;
 use minify_html_common::r#gen::codepoints::DOUBLE_QUOTE;
@@ -27,262 +27,266 @@ use std::fmt::Formatter;
 use std::str::from_utf8;
 
 fn parse_tag_name(code: &mut Code) -> Vec<u8> {
-  debug_assert!(code.as_slice().starts_with(b"<"));
-  code.shift(1);
-  code.shift_if_next(b'/');
-  let mut name = code.copy_and_shift_while_in_lookup(TAG_NAME_CHAR);
-  name.make_ascii_lowercase();
-  name
+    debug_assert!(code.as_slice().starts_with(b"<"));
+    code.shift(1);
+    code.shift_if_next(b'/');
+    let mut name = code.copy_and_shift_while_in_lookup(TAG_NAME_CHAR);
+    name.make_ascii_lowercase();
+    name
 }
 
 pub fn peek_tag_name(code: &mut Code) -> Vec<u8> {
-  let cp = code.take_checkpoint();
-  let name = parse_tag_name(code);
-  code.restore_checkpoint(cp);
-  name
+    let cp = code.take_checkpoint();
+    let name = parse_tag_name(code);
+    code.restore_checkpoint(cp);
+    name
 }
 
 // Derive Eq for testing.
 #[derive(Eq, PartialEq)]
 pub struct ParsedTag {
-  pub attributes: AHashMap<Vec<u8>, AttrVal>,
-  pub raw_opening_tag: Option<Vec<u8>>,
-  pub name: Vec<u8>,
-  pub self_closing: bool,
+    pub attributes: AHashMap<Vec<u8>, AttrVal>,
+    pub raw_opening_tag: Option<Vec<u8>>,
+    pub name: Vec<u8>,
+    pub self_closing: bool,
 }
 
 impl Debug for ParsedTag {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    f.write_fmt(format_args!("<{}", from_utf8(&self.name).unwrap()))?;
-    let mut attrs = self.attributes.iter().collect::<Vec<_>>();
-    attrs.sort_unstable_by(|a, b| a.0.cmp(b.0));
-    for (n, v) in attrs {
-      f.write_fmt(format_args!(" {}={:?}", from_utf8(n).unwrap(), v))?;
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("<{}", from_utf8(&self.name).unwrap()))?;
+        let mut attrs = self.attributes.iter().collect::<Vec<_>>();
+        attrs.sort_unstable_by(|a, b| a.0.cmp(b.0));
+        for (n, v) in attrs {
+            f.write_fmt(format_args!(" {}={:?}", from_utf8(n).unwrap(), v))?;
+        }
+        if self.self_closing {
+            f.write_str(" />")?;
+        };
+        std::fmt::Result::Ok(())
     }
-    if self.self_closing {
-      f.write_str(" />")?;
-    };
-    std::fmt::Result::Ok(())
-  }
 }
 
 // ESI (Edge Side Includes) tags are XML elements in the `esi:` namespace that an edge proxy resolves
 // before the response reaches a browser, so they're written with XML syntax (including self-closing
 // tags) even though they appear in an HTML document.
 pub fn is_esi_tag(name: &[u8]) -> bool {
-  name.starts_with(b"esi:")
+    name.starts_with(b"esi:")
 }
 
 // Keep the original attribute order and spelling. Only HTML whitespace outside
 // quoted values and complete template tokens is a formatting separator.
 fn compact_template_tag(source: &[u8], opts: crate::parse::ParseOpts) -> Vec<u8> {
-  let mut code = Code::new_with_opts(source, opts);
-  let mut out = Vec::with_capacity(source.len());
-  let mut quote = None;
-  // A quote only starts a value right after `=`. Elsewhere, e.g. in `data-x=it's`, it's literal.
-  let mut after_equals = false;
-  while !code.at_end() {
-    let start = code.take_checkpoint();
-    if code.shift_template() {
-      out.extend_from_slice(code.slice_since(start));
-      after_equals = false;
-      continue;
+    let mut code = Code::new_with_opts(source, opts);
+    let mut out = Vec::with_capacity(source.len());
+    let mut quote = None;
+    // A quote only starts a value right after `=`. Elsewhere, e.g. in `data-x=it's`, it's literal.
+    let mut after_equals = false;
+    while !code.at_end() {
+        let start = code.take_checkpoint();
+        if code.shift_template() {
+            out.extend_from_slice(code.slice_since(start));
+            after_equals = false;
+            continue;
+        }
+        let c = code.as_slice()[0];
+        if let Some(delim) = quote {
+            if c == delim {
+                quote = None;
+            }
+        } else if WHITESPACE[c] {
+            code.shift_while_in_lookup(WHITESPACE);
+            out.push(b' ');
+            continue;
+        } else if after_equals && matches!(c, b'\'' | b'"') {
+            quote = Some(c);
+        }
+        after_equals = quote.is_none() && c == b'=';
+        out.push(c);
+        code.shift(1);
     }
-    let c = code.as_slice()[0];
-    if let Some(delim) = quote {
-      if c == delim {
-        quote = None;
-      }
-    } else if WHITESPACE[c] {
-      code.shift_while_in_lookup(WHITESPACE);
-      out.push(b' ');
-      continue;
-    } else if after_equals && matches!(c, b'\'' | b'"') {
-      quote = Some(c);
-    }
-    after_equals = quote.is_none() && c == b'=';
-    out.push(c);
-    code.shift(1);
-  }
-  out
+    out
 }
 
 // While not valid, attributes in closing tags still need to be parsed (and then discarded) as attributes e.g. `</div x=">">`, which is why this function is used for both opening and closing tags.
 // TODO Use generics to create version that doesn't create an AHashMap.
 pub fn parse_tag(code: &mut Code) -> ParsedTag {
-  let start = code.take_checkpoint();
-  let elem_name = parse_tag_name(code);
-  let esi = code.opts.treat_esi_tags_as_self_closable && is_esi_tag(&elem_name);
-  let mut esi_trailing_slash = false;
-  let mut attributes = AHashMap::default();
-  let self_closing;
-  loop {
-    // At the beginning of this loop, the last parsed unit was either the tag name or an attribute (including its value, if it had one).
-    let last = code.shift_while_in_lookup(WHITESPACE_OR_SLASH);
-    if code.at_end() || code.shift_if_next(b'>') {
-      self_closing = esi_trailing_slash || last.filter(|&c| c == b'/').is_some();
-      // End of tag.
-      break;
-    };
-    let attr_start = code.take_checkpoint();
-    let mut template_attr_name = code.shift_template();
-    // An attribute name can start with `=`, but ends at the next whitespace, `=`, `/`, or `>`.
-    if !template_attr_name {
-      code.shift_if_next_not_in_lookup(WHITESPACE_OR_SLASH);
-    }
-    if code.opts.treat_brace_as_opaque || code.opts.treat_chevron_percent_as_opaque {
-      while !code.at_end() && !WHITESPACE_OR_SLASH_OR_EQUALS_OR_RIGHT_CHEVRON[code.as_slice()[0]] {
-        if code.shift_template() {
-          template_attr_name = true;
+    let start = code.take_checkpoint();
+    let elem_name = parse_tag_name(code);
+    let esi = code.opts.treat_esi_tags_as_self_closable && is_esi_tag(&elem_name);
+    let mut esi_trailing_slash = false;
+    let mut attributes = AHashMap::default();
+    let self_closing;
+    loop {
+        // At the beginning of this loop, the last parsed unit was either the tag name or an attribute (including its value, if it had one).
+        let last = code.shift_while_in_lookup(WHITESPACE_OR_SLASH);
+        if code.at_end() || code.shift_if_next(b'>') {
+            self_closing = esi_trailing_slash || last.filter(|&c| c == b'/').is_some();
+            // End of tag.
+            break;
+        };
+        let attr_start = code.take_checkpoint();
+        let mut template_attr_name = code.shift_template();
+        // An attribute name can start with `=`, but ends at the next whitespace, `=`, `/`, or `>`.
+        if !template_attr_name {
+            code.shift_if_next_not_in_lookup(WHITESPACE_OR_SLASH);
+        }
+        if code.opts.treat_brace_as_opaque || code.opts.treat_chevron_percent_as_opaque {
+            while !code.at_end()
+                && !WHITESPACE_OR_SLASH_OR_EQUALS_OR_RIGHT_CHEVRON[code.as_slice()[0]]
+            {
+                if code.shift_template() {
+                    template_attr_name = true;
+                } else {
+                    code.shift(1);
+                }
+            }
         } else {
-          code.shift(1);
+            code.slice_and_shift_while_not_in_lookup(
+                WHITESPACE_OR_SLASH_OR_EQUALS_OR_RIGHT_CHEVRON,
+            );
         }
-      }
-    } else {
-      code.slice_and_shift_while_not_in_lookup(WHITESPACE_OR_SLASH_OR_EQUALS_OR_RIGHT_CHEVRON);
-    }
-    let mut attr_name = code.slice_since(attr_start).to_vec();
-    debug_assert!(!attr_name.is_empty());
-    if !template_attr_name {
-      attr_name.make_ascii_lowercase();
-    }
+        let mut attr_name = code.slice_since(attr_start).to_vec();
+        debug_assert!(!attr_name.is_empty());
+        if !template_attr_name {
+            attr_name.make_ascii_lowercase();
+        }
 
-    // See comment for WHITESPACE_OR_SLASH in codepoints.ts for details of complex attr parsing.
-    code.shift_while_in_lookup(WHITESPACE);
-    let has_value = code.shift_if_next(b'=');
-    code.shift_while_in_lookup(WHITESPACE);
-    let attr_value = if !has_value {
-      AttrVal {
-        quote: None,
-        value: Vec::new(),
-      }
-    } else {
-      // TODO Replace ATTR_QUOTE with direct comparison.
-      let attr_delim = code.shift_if_next_in_lookup(ATTR_QUOTE);
-      // It seems that for unquoted attribute values, if it's the last value in a tag and is immediately followed by `>`, any trailing `/` is NOT interpreted as a self-closing indicator and is always included as part of the value, even for SVG self-closable elements.
-      let attr_delim_pred = match attr_delim {
-        Some(b'"') => DOUBLE_QUOTE,
-        Some(b'\'') => SINGLE_QUOTE,
-        None => NOT_UNQUOTED_ATTR_VAL_CHAR,
-        _ => unreachable!(),
-      };
-      let value_start = code.take_checkpoint();
-      code.slice_and_shift_attribute_value(attr_delim_pred);
-      let mut raw_value = code.slice_since(value_start);
-      // XML has no unquoted values, so on an ESI tag `src=/a/>` ends a self-closing tag rather
-      // than a value with a trailing slash.
-      if esi && attr_delim.is_none() && code.as_slice().first() == Some(&b'>') {
-        if let Some(value) = raw_value.strip_suffix(b"/") {
-          raw_value = value;
-          esi_trailing_slash = true;
-        }
-      }
-      // ESI processors read values literally, so keep their entities as written.
-      let attr_value = if esi {
-        raw_value.to_vec()
-      } else {
-        decode_entities(raw_value, true)
-      };
-      if let Some(c) = attr_delim {
-        // It might not be next if EOF (i.e. attribute value not closed).
-        code.shift_if_next(c);
-      };
-      AttrVal {
-        quote: attr_delim,
-        value: attr_value,
-      }
-    };
-    attributes.insert(attr_name, attr_value);
-  }
-  let source = code.slice_since(start);
-  let has_template = code.opts.contains_template_syntax(source);
-  ParsedTag {
-    attributes,
-    raw_opening_tag: has_template.then(|| compact_template_tag(source, code.opts.clone())),
-    name: elem_name,
-    self_closing,
-  }
+        // See comment for WHITESPACE_OR_SLASH in codepoints.ts for details of complex attr parsing.
+        code.shift_while_in_lookup(WHITESPACE);
+        let has_value = code.shift_if_next(b'=');
+        code.shift_while_in_lookup(WHITESPACE);
+        let attr_value = if !has_value {
+            AttrVal {
+                quote: None,
+                value: Vec::new(),
+            }
+        } else {
+            // TODO Replace ATTR_QUOTE with direct comparison.
+            let attr_delim = code.shift_if_next_in_lookup(ATTR_QUOTE);
+            // It seems that for unquoted attribute values, if it's the last value in a tag and is immediately followed by `>`, any trailing `/` is NOT interpreted as a self-closing indicator and is always included as part of the value, even for SVG self-closable elements.
+            let attr_delim_pred = match attr_delim {
+                Some(b'"') => DOUBLE_QUOTE,
+                Some(b'\'') => SINGLE_QUOTE,
+                None => NOT_UNQUOTED_ATTR_VAL_CHAR,
+                _ => unreachable!(),
+            };
+            let value_start = code.take_checkpoint();
+            code.slice_and_shift_attribute_value(attr_delim_pred);
+            let mut raw_value = code.slice_since(value_start);
+            // XML has no unquoted values, so on an ESI tag `src=/a/>` ends a self-closing tag rather
+            // than a value with a trailing slash.
+            if esi && attr_delim.is_none() && code.as_slice().first() == Some(&b'>') {
+                if let Some(value) = raw_value.strip_suffix(b"/") {
+                    raw_value = value;
+                    esi_trailing_slash = true;
+                }
+            }
+            // ESI processors read values literally, so keep their entities as written.
+            let attr_value = if esi {
+                raw_value.to_vec()
+            } else {
+                decode_entities(raw_value, true)
+            };
+            if let Some(c) = attr_delim {
+                // It might not be next if EOF (i.e. attribute value not closed).
+                code.shift_if_next(c);
+            };
+            AttrVal {
+                quote: attr_delim,
+                value: attr_value,
+            }
+        };
+        attributes.insert(attr_name, attr_value);
+    }
+    let source = code.slice_since(start);
+    let has_template = code.opts.contains_template_syntax(source);
+    ParsedTag {
+        attributes,
+        raw_opening_tag: has_template.then(|| compact_template_tag(source, code.opts.clone())),
+        name: elem_name,
+        self_closing,
+    }
 }
 
 pub fn script_lang(attributes: &AHashMap<Vec<u8>, AttrVal>) -> ScriptOrStyleLang {
-  match attributes.get(b"type".as_ref()) {
-    Some(typ) if typ.as_slice() == b"module" => ScriptOrStyleLang::JSModule,
-    Some(mime) if !JAVASCRIPT_MIME_TYPES.contains(mime.as_slice()) => ScriptOrStyleLang::Data,
-    _ => ScriptOrStyleLang::JS,
-  }
+    match attributes.get(b"type".as_ref()) {
+        Some(typ) if typ.as_slice() == b"module" => ScriptOrStyleLang::JSModule,
+        Some(mime) if !JAVASCRIPT_MIME_TYPES.contains(mime.as_slice()) => ScriptOrStyleLang::Data,
+        _ => ScriptOrStyleLang::JS,
+    }
 }
 
 // `<` must be next. `parent` should be an empty slice if it doesn't exist.
 pub fn parse_element(code: &mut Code, ns: Namespace, parent: &[u8]) -> NodeData {
-  let ParsedTag {
-    name: elem_name,
-    attributes,
-    raw_opening_tag,
-    self_closing,
-  } = parse_tag(code);
+    let ParsedTag {
+        name: elem_name,
+        attributes,
+        raw_opening_tag,
+        self_closing,
+    } = parse_tag(code);
 
-  // Embedded svg tags are immediately in the svg namespace and must be parsed as such.
-  let ns = if elem_name == b"svg" {
-    Namespace::Svg
-  } else {
-    ns
-  };
-
-  // Only foreign elements can be self closed, except for ESI tags when the user has opted into
-  // preserving them, as those are XML and are never parsed as HTML by a browser.
-  if self_closing
-    && (ns != Namespace::Html
-      || (code.opts.treat_esi_tags_as_self_closable && is_esi_tag(&elem_name)))
-  {
-    return NodeData::Element {
-      attributes,
-      raw_opening_tag,
-      children: Vec::new(),
-      closing_tag: ElementClosingTag::SelfClosing,
-      name: elem_name,
-      namespace: ns,
-      next_sibling_element_name: Vec::new(),
-    };
-  };
-  if VOID_TAGS.contains(elem_name.as_slice()) {
-    return NodeData::Element {
-      attributes,
-      raw_opening_tag,
-      children: Vec::new(),
-      closing_tag: ElementClosingTag::Void,
-      name: elem_name,
-      namespace: ns,
-      next_sibling_element_name: Vec::new(),
-    };
-  };
-
-  let ParsedContent {
-    closing_tag_omitted,
-    children,
-  } = match (ns, elem_name.as_slice()) {
-    (_, b"script") => parse_script_content(code, script_lang(&attributes)),
-    (_, b"style") => parse_style_content(code),
-    (Namespace::Html, b"textarea") => parse_textarea_content(code),
-    (Namespace::Html, b"title") => parse_title_content(code),
-    _ => parse_content(code, ns, parent, &elem_name),
-  };
-
-  if !closing_tag_omitted {
-    let closing_tag = parse_tag(code);
-    debug_assert_eq!(closing_tag.name, elem_name);
-  };
-
-  NodeData::Element {
-    attributes,
-    raw_opening_tag,
-    children,
-    closing_tag: if closing_tag_omitted {
-      ElementClosingTag::Omitted
+    // Embedded svg tags are immediately in the svg namespace and must be parsed as such.
+    let ns = if elem_name == b"svg" {
+        Namespace::Svg
     } else {
-      ElementClosingTag::Present
-    },
-    name: elem_name,
-    namespace: ns,
-    next_sibling_element_name: Vec::new(),
-  }
+        ns
+    };
+
+    // Only foreign elements can be self closed, except for ESI tags when the user has opted into
+    // preserving them, as those are XML and are never parsed as HTML by a browser.
+    if self_closing
+        && (ns != Namespace::Html
+            || (code.opts.treat_esi_tags_as_self_closable && is_esi_tag(&elem_name)))
+    {
+        return NodeData::Element {
+            attributes,
+            raw_opening_tag,
+            children: Vec::new(),
+            closing_tag: ElementClosingTag::SelfClosing,
+            name: elem_name,
+            namespace: ns,
+            next_sibling_element_name: Vec::new(),
+        };
+    };
+    if VOID_TAGS.contains(elem_name.as_slice()) {
+        return NodeData::Element {
+            attributes,
+            raw_opening_tag,
+            children: Vec::new(),
+            closing_tag: ElementClosingTag::Void,
+            name: elem_name,
+            namespace: ns,
+            next_sibling_element_name: Vec::new(),
+        };
+    };
+
+    let ParsedContent {
+        closing_tag_omitted,
+        children,
+    } = match (ns, elem_name.as_slice()) {
+        (_, b"script") => parse_script_content(code, script_lang(&attributes)),
+        (_, b"style") => parse_style_content(code),
+        (Namespace::Html, b"textarea") => parse_textarea_content(code),
+        (Namespace::Html, b"title") => parse_title_content(code),
+        _ => parse_content(code, ns, parent, &elem_name),
+    };
+
+    if !closing_tag_omitted {
+        let closing_tag = parse_tag(code);
+        debug_assert_eq!(closing_tag.name, elem_name);
+    };
+
+    NodeData::Element {
+        attributes,
+        raw_opening_tag,
+        children,
+        closing_tag: if closing_tag_omitted {
+            ElementClosingTag::Omitted
+        } else {
+            ElementClosingTag::Present
+        },
+        name: elem_name,
+        namespace: ns,
+        next_sibling_element_name: Vec::new(),
+    }
 }

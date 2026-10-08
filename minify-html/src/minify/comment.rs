@@ -2,14 +2,14 @@ use crate::cfg::Cfg;
 use crate::parse::ParseOpts;
 
 pub fn minify_comment(cfg: &Cfg, out: &mut Vec<u8>, code: &[u8], ended: bool) {
-  let is_ssi = code.starts_with(b"#");
-  let is_esi = cfg.preserve_esi_tags && code.starts_with(b"esi");
-  let has_template = ParseOpts::from(cfg).contains_template_syntax(code);
-  if cfg.keep_comments || (is_ssi && cfg.keep_ssi_comments) || is_esi || has_template {
-    out.extend_from_slice(b"<!--");
-    out.extend_from_slice(code);
-    if ended {
-      out.extend_from_slice(b"-->");
+    let is_ssi = code.starts_with(b"#");
+    let is_esi = cfg.preserve_esi_tags && code.starts_with(b"esi");
+    let has_template = ParseOpts::from(cfg).contains_template_syntax(code);
+    if cfg.keep_comments || (is_ssi && cfg.keep_ssi_comments) || is_esi || has_template {
+        out.extend_from_slice(b"<!--");
+        out.extend_from_slice(code);
+        if ended {
+            out.extend_from_slice(b"-->");
+        };
     };
-  };
 }
