@@ -418,12 +418,15 @@ impl TrieBuilder {
                 // bog down compile time and binary size for large trees with lots of nodes.
                 // If array is empty, just use zero.
                 let first_idx = node.borrow().children.keys().cloned().min().unwrap_or(0);
-                let children = (first_idx..=255)
-                    .map(|c| match node.borrow().children.get(&c) {
-                        Some(c) => format!("Some({})", self.generate_node(c.clone())),
-                        None => "None".to_string(),
-                    })
-                    .join(", ");
+                let last_idx = node.borrow().children.keys().cloned().max();
+                let children = last_idx.map_or_else(String::new, |last_idx| {
+                    (first_idx..=last_idx)
+                        .map(|c| match node.borrow().children.get(&c) {
+                            Some(c) => format!("Some({})", self.generate_node(c.clone())),
+                            None => "None".to_string(),
+                        })
+                        .join(", ")
+                });
 
                 let value = node
                     .borrow()
