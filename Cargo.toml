@@ -5,7 +5,6 @@ members = [
   "bench/runners/minify-html",
   "debug/diff/c14n",
   "debug/diff/charlines",
-  "minhtml",
   "minify-html-common",
   "minify-html-onepass",
   "minify-html",

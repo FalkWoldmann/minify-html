@@ -1,6 +1,5 @@
 <h1>
 minify-html
-<img width="24" src="https://wilsonl.in/minify-html/icon/cli.png">
 <img width="24" src="https://wilsonl.in/minify-html/icon/rust.png">
 </h1>
 
@@ -21,31 +20,6 @@ Comparison with [html-minifier](https://github.com/kangax/html-minifier) and [mi
 The [onepass](https://github.com/wilsonzlin/minify-html/tree/master/minify-html-onepass) variant is even more optimised for speed. See its [README](https://github.com/wilsonzlin/minify-html/tree/master/minify-html-onepass) for more details.
 
 ## Compatibility and usage
-
-<details>
-<summary><img width="24" src="https://wilsonl.in/minify-html/icon/cli.png"> <strong>CLI</strong></summary>
-
-The CLI is called [minhtml](./minhtml).
-Precompiled binaries are available for Linux (ARM64 and x64), macOS (ARM64 and x64), and Windows (x64).
-You can download them in the GitHub release.
-
-If you have Cargo installed, you can also build and install from source: `cargo install minhtml`.
-
-### Use
-
-Use the `--help` argument for more details.
-
-```bash
-minhtml --output /path/to/output.min.html --keep-closing-tags --minify-css /path/to/src.html
-```
-
-To quickly parallel process a batch of files in place:
-
-```bash
-minhtml --keep-closing-tags --minify-css /path/to/**/*.html
-```
-
-</details>
 
 <details>
 <summary><img width="24" src="https://wilsonl.in/minify-html/icon/rust.png"> <strong>Rust</strong></summary>
@@ -77,7 +51,7 @@ Each file is compacted as if it renders in normal flow. If a child `{% block %}`
 
 For Askama build-time preprocessing with ESI, enable `preserve_brace_template_syntax` and `preserve_esi_tags`, keep closing and HTML/head opening tags, and leave possibly-noncompliant minification disabled.
 
-Rendered output usually has no template syntax left, so it goes through the normal HTML minifier, which drops whitespace-only text inside containers like `div`. That joins `<span>Hello</span> <span>world</span>` into `Helloworld`. To minify rendered HTML with the same whitespace rules as its template, enable `preserve_inline_whitespace` (`--preserve-inline-whitespace` on the CLI). It uses this mode whether or not template syntax is found.
+Rendered output usually has no template syntax left, so it goes through the normal HTML minifier, which drops whitespace-only text inside containers like `div`. That joins `<span>Hello</span> <span>world</span>` into `Helloworld`. To minify rendered HTML with the same whitespace rules as its template, enable `preserve_inline_whitespace`. It uses this mode whether or not template syntax is found.
 
 ## Edge Side Includes
 
@@ -89,7 +63,7 @@ Rendered output usually has no template syntax left, so it goes through the norm
 
 HTML has no self-closing syntax for non-[void](https://html.spec.whatwg.org/multipage/syntax.html#void-elements) elements, so by default the trailing `/` is ignored and `<span>after</span>` is parsed as a *child* of the unclosed `<esi:include>`, mangling the document structure.
 
-Set the `preserve_esi_tags` Cfg option (`--preserve-esi-tags` on the CLI) to parse tags in the `esi:` namespace as XML instead. Self-closing tags are then kept as empty elements, and attribute values on ESI tags are kept exactly as written (entities included) and always quoted, so that XML-based ESI processors can still parse them:
+Set the `preserve_esi_tags` Cfg option to parse tags in the `esi:` namespace as XML instead. Self-closing tags are then kept as empty elements, and attribute values on ESI tags are kept exactly as written (entities included) and always quoted, so that XML-based ESI processors can still parse them:
 
 ```html
 <div><esi:include src="/a"/><span>after</span></div>

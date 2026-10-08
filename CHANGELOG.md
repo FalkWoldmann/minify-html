@@ -2,7 +2,7 @@
 
 ## Pending
 
-- Remove the Deno, Java, Node.js, Python (including onepass), Ruby and WASM bindings. Only the Rust crates and the `minhtml` CLI remain.
+- Remove the Deno, Java, Node.js, Python (including onepass), Ruby and WASM bindings, and the `minhtml` CLI. Only the Rust crates remain.
 - Add `preserve_inline_whitespace` option, which minifies with the template mode whitespace rules even when the source has no template syntax, so rendered HTML keeps separators between inline elements.
 - Compact template-bearing tag separators and normal HTML indentation without changing quoted JSON/attribute values, Askama whitespace controls, visible inline separators, preformatted/raw regions or ESI XML semantics.
 - Preserve Askama-style templates at compile time without guessing conditional HTML trees: retain dynamic attribute order/quotes, explicit closing tags, significant text spacing, nested comments, quoted delimiters, raw blocks and special-element bodies while minifying literal HTML opening tags.
