@@ -5,9 +5,9 @@ use crate::parse::Code;
 use crate::parse::element::ParsedTag;
 use crate::parse::element::parse_element;
 use crate::parse::element::parse_tag;
+use crate::spec::tag::EMPTY_SLICE;
+use crate::spec::tag::ns::Namespace;
 use ahash::AHashMap;
-use minify_html_common::spec::tag::EMPTY_SLICE;
-use minify_html_common::spec::tag::ns::Namespace;
 
 fn val(v: &[u8]) -> AttrVal {
     AttrVal {

@@ -7,10 +7,10 @@ use crate::minify::attr::keep_esi_attr;
 use crate::minify::attr::minify_attr;
 use crate::minify::content::minify_content;
 use crate::parse::element::is_esi_tag;
+use crate::spec::tag::ns::Namespace;
+use crate::spec::tag::omission::can_omit_as_before;
+use crate::spec::tag::omission::can_omit_as_last_node;
 use ahash::AHashMap;
-use minify_html_common::spec::tag::ns::Namespace;
-use minify_html_common::spec::tag::omission::can_omit_as_before;
-use minify_html_common::spec::tag::omission::can_omit_as_last_node;
 
 #[allow(clippy::too_many_arguments)]
 pub fn minify_element(

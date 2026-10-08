@@ -1,8 +1,8 @@
 use crate::ast::ElementClosingTag;
 use crate::ast::NodeData;
+use crate::pattern::Replacer;
 use aho_corasick::AhoCorasickBuilder;
 use aho_corasick::MatchKind;
-use minify_html_common::pattern::Replacer;
 use std::io::Write;
 use std::sync::LazyLock;
 

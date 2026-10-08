@@ -1,10 +1,12 @@
 use crate::cfg::Cfg;
 use crate::minify;
-use minify_html_common::tests::create_common_css_test_data;
-use minify_html_common::tests::create_common_js_test_data;
-use minify_html_common::tests::create_common_noncompliant_test_data;
-use minify_html_common::tests::create_common_test_data;
+use crate::tests::data::create_common_css_test_data;
+use crate::tests::data::create_common_js_test_data;
+use crate::tests::data::create_common_noncompliant_test_data;
+use crate::tests::data::create_common_test_data;
 use std::str::from_utf8;
+
+mod data;
 
 pub fn eval_with_cfg(src: &'static [u8], expected: &'static [u8], cfg: &Cfg) {
     let min = minify(&src, cfg);

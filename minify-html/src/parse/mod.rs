@@ -1,6 +1,6 @@
 use crate::cfg::Cfg;
-use minify_html_common::r#gen::codepoints::Lookup;
-use minify_html_common::r#gen::codepoints::WHITESPACE;
+use crate::r#gen::codepoints::Lookup;
+use crate::r#gen::codepoints::WHITESPACE;
 
 pub mod bang;
 pub mod comment;

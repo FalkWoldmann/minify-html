@@ -13,16 +13,16 @@
 // - For a numeric entity, browsers actually consume an unlimited amount of digits, but decode to 0xFFFD if not a valid
 //   Unicode Scalar Value.
 
+use crate::r#gen::codepoints::ALPHANUMERIC_OR_EQUALS;
+use crate::r#gen::codepoints::DIGIT;
+use crate::r#gen::codepoints::HEX_DIGIT;
+use crate::r#gen::codepoints::LOWER_HEX_ALPHA;
+use crate::r#gen::codepoints::Lookup;
+use crate::r#gen::codepoints::UPPER_HEX_ALPHA;
+use crate::r#gen::entities::ENTITY;
+use crate::r#gen::entities::EntityType;
+use crate::pattern::TrieNodeMatch;
 use memchr::memchr;
-use minify_html_common::r#gen::codepoints::ALPHANUMERIC_OR_EQUALS;
-use minify_html_common::r#gen::codepoints::DIGIT;
-use minify_html_common::r#gen::codepoints::HEX_DIGIT;
-use minify_html_common::r#gen::codepoints::LOWER_HEX_ALPHA;
-use minify_html_common::r#gen::codepoints::Lookup;
-use minify_html_common::r#gen::codepoints::UPPER_HEX_ALPHA;
-use minify_html_common::r#gen::entities::ENTITY;
-use minify_html_common::r#gen::entities::EntityType;
-use minify_html_common::pattern::TrieNodeMatch;
 use std::char::from_u32;
 
 enum Decoded {

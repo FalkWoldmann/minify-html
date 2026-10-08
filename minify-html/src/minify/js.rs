@@ -1,5 +1,5 @@
 use crate::cfg::Cfg;
-use minify_html_common::whitespace::trimmed;
+use crate::whitespace::trimmed;
 use oxc_allocator::Allocator;
 use oxc_codegen::Codegen;
 use oxc_codegen::CodegenOptions;

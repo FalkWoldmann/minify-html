@@ -1,7 +1,7 @@
 use crate::ast::NodeData;
+use crate::r#gen::codepoints::WHITESPACE;
 use crate::parse::Code;
 use memchr::memchr;
-use minify_html_common::r#gen::codepoints::WHITESPACE;
 
 pub fn parse_doctype(code: &mut Code) -> NodeData {
     debug_assert!(code.as_slice()[..9].eq_ignore_ascii_case(b"<!doctype"));

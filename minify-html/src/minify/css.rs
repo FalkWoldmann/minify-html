@@ -1,9 +1,9 @@
 use crate::cfg::Cfg;
+use crate::whitespace::trimmed;
 use lightningcss::stylesheet::MinifyOptions;
 use lightningcss::stylesheet::ParserOptions;
 use lightningcss::stylesheet::PrinterOptions;
 use lightningcss::stylesheet::StyleSheet;
-use minify_html_common::whitespace::trimmed;
 use std::str::from_utf8;
 
 pub fn minify_css(cfg: &Cfg, out: &mut Vec<u8>, code: &[u8]) {

@@ -667,14 +667,16 @@ version = "0.18.1"
 dependencies = [
  "ahash 0.8.12",
  "aho-corasick",
+ "itertools 0.14.0",
  "lightningcss",
  "memchr",
- "minify-html-common",
  "oxc_allocator",
  "oxc_codegen",
  "oxc_minifier",
  "oxc_parser",
  "oxc_span",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -682,17 +684,6 @@ name = "minify-html-bench"
 version = "0.0.1"
 dependencies = [
  "minify-html",
- "serde_json",
-]
-
-[[package]]
-name = "minify-html-common"
-version = "0.0.3"
-dependencies = [
- "ahash 0.8.12",
- "aho-corasick",
- "itertools 0.14.0",
- "serde",
  "serde_json",
 ]
 

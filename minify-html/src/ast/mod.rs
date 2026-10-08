@@ -1,5 +1,5 @@
+use crate::spec::tag::ns::Namespace;
 use ahash::AHashMap;
-use minify_html_common::spec::tag::ns::Namespace;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::str::from_utf8;

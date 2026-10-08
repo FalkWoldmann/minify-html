@@ -4,7 +4,6 @@ members = [
   "bench/runners/minify-html",
   "debug/diff/c14n",
   "debug/diff/charlines",
-  "minify-html-common",
   "minify-html",
 ]
 
@@ -25,7 +24,6 @@ itertools = "0.14"
 lightningcss = "1.0.0-alpha.68"
 memchr = "2"
 minify-html = { version = "0.18", path = "minify-html" }
-minify-html-common = { version = "0.0.3", path = "minify-html-common" }
 oxc_allocator = "0.139"
 oxc_codegen = "0.139"
 oxc_minifier = "0.139"

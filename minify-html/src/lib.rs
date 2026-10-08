@@ -6,19 +6,23 @@ use crate::minify::content::minify_content;
 use crate::parse::Code;
 use crate::parse::content::parse_content;
 use crate::parse::content::parse_template_content;
-use minify_html_common::spec::tag::EMPTY_SLICE;
-use minify_html_common::spec::tag::ns::Namespace;
+use crate::spec::tag::EMPTY_SLICE;
+use crate::spec::tag::ns::Namespace;
 use parse::ParseOpts;
 use std::io::Write;
 
 mod ast;
 mod cfg;
 mod entity;
+mod r#gen;
 mod minify;
 mod parse;
+mod pattern;
+mod spec;
 mod tag;
 #[cfg(test)]
 mod tests;
+mod whitespace;
 
 /// Minifies UTF-8 HTML code, represented as an array of bytes.
 ///
