@@ -108,13 +108,15 @@ fn compact_template_tag(source: &[u8], opts: crate::parse::ParseOpts) -> Vec<u8>
 pub fn parse_tag(code: &mut Code) -> ParsedTag {
   let start = code.take_checkpoint();
   let elem_name = parse_tag_name(code);
+  let esi = code.opts.treat_esi_tags_as_self_closable && is_esi_tag(&elem_name);
+  let mut esi_trailing_slash = false;
   let mut attributes = AHashMap::default();
   let self_closing;
   loop {
     // At the beginning of this loop, the last parsed unit was either the tag name or an attribute (including its value, if it had one).
     let last = code.shift_while_in_lookup(WHITESPACE_OR_SLASH);
     if code.at_end() || code.shift_if_next(b'>') {
-      self_closing = last.filter(|&c| c == b'/').is_some();
+      self_closing = esi_trailing_slash || last.filter(|&c| c == b'/').is_some();
       // End of tag.
       break;
     };
@@ -160,7 +162,23 @@ pub fn parse_tag(code: &mut Code) -> ParsedTag {
         None => NOT_UNQUOTED_ATTR_VAL_CHAR,
         _ => unreachable!(),
       };
-      let attr_value = decode_entities(code.slice_and_shift_attribute_value(attr_delim_pred), true);
+      let value_start = code.take_checkpoint();
+      code.slice_and_shift_attribute_value(attr_delim_pred);
+      let mut raw_value = code.slice_since(value_start);
+      // XML has no unquoted values, so on an ESI tag `src=/a/>` ends a self-closing tag rather
+      // than a value with a trailing slash.
+      if esi && attr_delim.is_none() && code.as_slice().first() == Some(&b'>') {
+        if let Some(value) = raw_value.strip_suffix(b"/") {
+          raw_value = value;
+          esi_trailing_slash = true;
+        }
+      }
+      // ESI processors read values literally, so keep their entities as written.
+      let attr_value = if esi {
+        raw_value.to_vec()
+      } else {
+        decode_entities(raw_value, true)
+      };
       if let Some(c) = attr_delim {
         // It might not be next if EOF (i.e. attribute value not closed).
         code.shift_if_next(c);

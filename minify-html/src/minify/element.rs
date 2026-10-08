@@ -2,9 +2,11 @@ use crate::ast::AttrVal;
 use crate::ast::ElementClosingTag;
 use crate::ast::NodeData;
 use crate::cfg::Cfg;
+use crate::minify::attr::keep_esi_attr;
 use crate::minify::attr::minify_attr;
 use crate::minify::attr::AttrMinified;
 use crate::minify::content::minify_content;
+use crate::parse::element::is_esi_tag;
 use ahash::AHashMap;
 use minify_html_common::spec::tag::ns::Namespace;
 use minify_html_common::spec::tag::omission::can_omit_as_before;
@@ -48,7 +50,12 @@ pub fn minify_element(
         .filter(|a| a.value.eq_ignore_ascii_case(b"viewport"))
         .is_some();
 
+    let esi = cfg.preserve_esi_tags && is_esi_tag(tag_name);
     for (name, value) in attributes {
+      if esi {
+        quoted.push((name, keep_esi_attr(value)));
+        continue;
+      }
       match minify_attr(cfg, ns, tag_name, is_meta_viewport, &name, value.value) {
         AttrMinified::Redundant => {}
         a @ AttrMinified::NoValue => unquoted.push((name, a)),

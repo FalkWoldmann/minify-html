@@ -637,6 +637,75 @@ fn test_preserve_esi_tags() {
 }
 
 #[test]
+fn should_keep_esi_include_values_as_written() {
+  let mut cfg = Cfg {
+    preserve_esi_tags: true,
+    allow_optimal_entities: true,
+    ..Cfg::default()
+  };
+  // Entities aren't decoded and re-encoded, so no bare `&` or unterminated `&#34` can appear.
+  eval_with_cfg(
+    br#"<esi:include src="/a?x=1&amp;y=2" alt='&lt;&gt;&nbsp;' data-q="&quot;x&quot;"/>"#,
+    br#"<esi:include alt='&lt;&gt;&nbsp;' data-q="&quot;x&quot;" src="/a?x=1&amp;y=2"/>"#,
+    &cfg,
+  );
+  // Values XML would reject are kept as the author wrote them.
+  eval_with_cfg(
+    br#"<esi:include src="/a?x=1&y=2" />"#,
+    br#"<esi:include src="/a?x=1&y=2"/>"#,
+    &cfg,
+  );
+  // Unquoted and valueless attributes get the quotes XML requires.
+  eval_with_cfg(
+    br#"<esi:include src=/a?x="1" alt />"#,
+    br#"<esi:include alt="" src="/a?x=&quot;1&quot;"/>"#,
+    &cfg,
+  );
+  cfg.preserve_brace_template_syntax = true;
+  eval_with_cfg(
+    br#"<esi:include src="/a?x=1&amp;y=2" /><span>{{after}}</span>"#,
+    br#"<esi:include src="/a?x=1&amp;y=2"/><span>{{after}}</span>"#,
+    &cfg,
+  );
+}
+
+#[test]
+fn should_self_close_esi_include_after_an_unquoted_value() {
+  let mut cfg = Cfg {
+    preserve_esi_tags: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    br#"<div><esi:include src=/a/><p>x</p></div>"#,
+    br#"<div><esi:include src="/a"/><p>x</div>"#,
+    &cfg,
+  );
+  // A slash followed by whitespace is still part of the value.
+  eval_with_cfg(
+    br#"<div><esi:include src=/a/ /><p>x</p></div>"#,
+    br#"<div><esi:include src="/a/"/><p>x</div>"#,
+    &cfg,
+  );
+  cfg.preserve_brace_template_syntax = true;
+  eval_with_cfg(
+    br#"<esi:include src=/a/><p>x</p>{{x}}"#,
+    br#"<esi:include src="/a"/><p>x</p>{{x}}"#,
+    &cfg,
+  );
+  eval_with_cfg(
+    br#"<esi:include src={{ url }}/><p>x</p>"#,
+    br#"<esi:include src={{ url }}/><p>x</p>"#,
+    &cfg,
+  );
+  // HTML elements keep the HTML rule, where the slash belongs to the value.
+  eval_with_cfg(
+    br#"<a href=/a/>x</a>{{x}}"#,
+    br#"<a href=/a/>x</a>{{x}}"#,
+    &cfg,
+  );
+}
+
+#[test]
 fn test_minification_of_doctype() {
   let mut cfg = Cfg::new();
   cfg.minify_doctype = true;

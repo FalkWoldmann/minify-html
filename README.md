@@ -267,13 +267,13 @@ Preformatted/raw content, RCDATA/rawtext bodies and foreign text retain their wh
 
 HTML has no self-closing syntax for non-[void](https://html.spec.whatwg.org/multipage/syntax.html#void-elements) elements, so by default the trailing `/` is ignored and `<span>after</span>` is parsed as a *child* of the unclosed `<esi:include>`, mangling the document structure.
 
-Set the `preserve_esi_tags` Cfg option (`--preserve-esi-tags` on the CLI) to parse tags in the `esi:` namespace as XML instead. Self-closing tags are then kept as empty elements, and attribute values on ESI tags are always left quoted so that XML-based ESI processors can still parse them:
+Set the `preserve_esi_tags` Cfg option (`--preserve-esi-tags` on the CLI) to parse tags in the `esi:` namespace as XML instead. Self-closing tags are then kept as empty elements, and attribute values on ESI tags are kept exactly as written (entities included) and always quoted, so that XML-based ESI processors can still parse them:
 
 ```html
 <div><esi:include src="/a"/><span>after</span></div>
 ```
 
-Note that this only applies to tags that are explicitly self-closed or explicitly closed; `<esi:include src="/a">` with no closing tag is still parsed as an HTML opening tag.
+Since XML has no unquoted values, a slash right before the `>` of an ESI tag also self-closes it, so `<esi:include src=/a/>` becomes `<esi:include src="/a"/>`. Note that this only applies to tags that are explicitly self-closed or explicitly closed; `<esi:include src="/a">` with no closing tag is still parsed as an HTML opening tag.
 
 ## Minification
 

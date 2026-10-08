@@ -1,5 +1,5 @@
+use crate::ast::AttrVal;
 use crate::entity::encode::encode_entities;
-use crate::parse::element::is_esi_tag;
 use crate::Cfg;
 use aho_corasick::AhoCorasickBuilder;
 use aho_corasick::MatchKind;
@@ -252,6 +252,15 @@ static WHATWG_DOUBLE_QUOTED_REPLACER: Lazy<Replacer> =
 static WHATWG_SINGLE_QUOTED_REPLACER: Lazy<Replacer> =
   Lazy::new(|| build_whatwg_single_quoted_replacer());
 static WHATWG_UNQUOTED_REPLACER: Lazy<Replacer> = Lazy::new(|| build_whatwg_unquoted_replacer());
+// An unquoted source value gets double quotes, so escape what XML doesn't allow inside them.
+static ESI_UNQUOTED_REPLACER: Lazy<Replacer> = Lazy::new(|| {
+  Replacer::new(
+    AhoCorasickBuilder::new()
+      .build([b"\"".as_slice(), b"<".as_slice()])
+      .unwrap(),
+    vec![b"&quot;".to_vec(), b"&lt;".to_vec()],
+  )
+});
 
 pub struct AttrMinifiedValue {
   quoted: bool,
@@ -438,7 +447,7 @@ pub fn minify_attr(
     return AttrMinified::Redundant;
   };
 
-  if (is_boolean || value_raw.is_empty()) && !(cfg.preserve_esi_tags && is_esi_tag(tag)) {
+  if is_boolean || value_raw.is_empty() {
     return AttrMinified::NoValue;
   };
 
@@ -451,17 +460,30 @@ pub fn minify_attr(
   if sq.len() < min.len() {
     min = sq;
   };
-  // ESI tags are parsed as XML by the edge proxy that resolves them, and XML requires attribute
-  // values to be quoted, so never drop the quotes when preserving them.
-  if !(cfg.preserve_esi_tags && is_esi_tag(tag)) {
-    let uq = encode_unquoted(
-      &encoded,
-      must_end_with_semicolon,
-      !cfg.allow_noncompliant_unquoted_attribute_values,
-    );
-    if uq.len() < min.len() {
-      min = uq;
-    };
+  let uq = encode_unquoted(
+    &encoded,
+    must_end_with_semicolon,
+    !cfg.allow_noncompliant_unquoted_attribute_values,
+  );
+  if uq.len() < min.len() {
+    min = uq;
   };
   AttrMinified::Value(min)
+}
+
+// ESI tags are parsed as XML by the edge proxy that resolves them, which reads attribute values
+// literally. Keep the value as written and only add the quotes XML requires.
+pub fn keep_esi_attr(val: AttrVal) -> AttrMinifiedValue {
+  let (prefix, suffix, data): (&'static [u8], &'static [u8], _) = match val.quote {
+    Some(b'\'') => (b"'", b"'", val.value),
+    Some(_) => (b"\"", b"\"", val.value),
+    None => (b"\"", b"\"", ESI_UNQUOTED_REPLACER.replace_all(&val.value)),
+  };
+  AttrMinifiedValue {
+    quoted: true,
+    prefix,
+    data,
+    start: 0,
+    suffix,
+  }
 }
