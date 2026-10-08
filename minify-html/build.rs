@@ -35,9 +35,7 @@ struct HtmlDataAttrConfig {
 }
 
 #[derive(Deserialize)]
-#[allow(dead_code)]
 struct HtmlData {
-    tags: HashMap<HtmlDataNamespace, Vec<String>>,
     // attr => ns => tag => AttrConfig.
     attributes: HashMap<String, HashMap<HtmlDataNamespace, HashMap<String, HtmlDataAttrConfig>>>,
 }
@@ -205,10 +203,6 @@ impl CodePoints {
         Self([false; 256])
     }
 
-    fn contains(&self, v: u8) -> bool {
-        self.0[v as usize]
-    }
-
     fn iter(&self) -> impl Iterator<Item = u8> + '_ {
         self.0
             .iter()
@@ -268,8 +262,6 @@ impl<I: IntoIterator<Item = u8>> From<I> for CodePoints {
 fn gen_codepoints_rs() -> String {
     // Also update gen/tries.json when changing whitespace definition.
     let whitespace: CodePoints = [0x09u8, 0x0a, 0x0c, 0x0d, 0x20].into();
-    let c0_control: CodePoints = (0u8..=0x1f).into();
-    let control = c0_control + (0x7f..=0x9f);
     let digit: CodePoints = (b'0'..=b'9').into();
     let upper_hex_alpha: CodePoints = (b'A'..=b'F').into();
     let lower_hex_alpha: CodePoints = (b'a'..=b'f').into();
@@ -296,16 +288,6 @@ fn gen_codepoints_rs() -> String {
 
     let double_quote = c(b'"');
     let single_quote = c(b'\'');
-    // Official characters allowed in an attribute name.
-    // NOTE: Unicode noncharacters not tested.
-    // See https://html.spec.whatwg.org/multipage/syntax.html#syntax-attribute-name for spec.
-    let whatwg_attr_name_char: CodePoints = (0..=255)
-        .filter(|&c| match c {
-            b' ' | b'"' | b'\'' | b'>' | b'/' | b'=' => false,
-            c if control.contains(c) => false,
-            _ => true,
-        })
-        .into();
     // Valid attribute quote characters.
     // See https://html.spec.whatwg.org/multipage/introduction.html#intro-early-example for spec.
     // Backtick is not a valid quote character according to spec.
@@ -347,7 +329,6 @@ fn gen_codepoints_rs() -> String {
             "WHITESPACE_OR_SLASH_OR_EQUALS_OR_RIGHT_CHEVRON",
             whitespace_or_slash_or_equals_or_right_chevron,
         ),
-        ("WHATWG_ATTR_NAME_CHAR", whatwg_attr_name_char),
         ("DOUBLE_QUOTE", double_quote),
         ("SINGLE_QUOTE", single_quote),
         ("ATTR_QUOTE", attr_quote),
@@ -473,9 +454,7 @@ impl TrieBuilder {
 }
 
 #[derive(Deserialize)]
-#[allow(dead_code)]
 struct Entity {
-    codepoints: Vec<u32>,
     characters: String,
 }
 
