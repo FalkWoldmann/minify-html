@@ -1,3 +1,4 @@
+use crate::cfg::Cfg;
 use minify_html_common::gen::codepoints::Lookup;
 use minify_html_common::gen::codepoints::WHITESPACE;
 
@@ -19,6 +20,16 @@ pub struct ParseOpts {
   pub treat_brace_as_opaque: bool,
   pub treat_chevron_percent_as_opaque: bool,
   pub treat_esi_tags_as_self_closable: bool,
+}
+
+impl From<&Cfg> for ParseOpts {
+  fn from(cfg: &Cfg) -> Self {
+    ParseOpts {
+      treat_brace_as_opaque: cfg.preserve_brace_template_syntax,
+      treat_chevron_percent_as_opaque: cfg.preserve_chevron_percent_template_syntax,
+      treat_esi_tags_as_self_closable: cfg.preserve_esi_tags,
+    }
+  }
 }
 
 impl ParseOpts {

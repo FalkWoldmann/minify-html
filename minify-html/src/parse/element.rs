@@ -260,10 +260,6 @@ pub fn parse_element(code: &mut Code, ns: Namespace, parent: &[u8]) -> NodeData 
     closing_tag_omitted,
     children,
   } = match (ns, elem_name.as_slice()) {
-    // A templated header can change the script MIME type after minification.
-    (_, b"script") if raw_opening_tag.is_some() => {
-      parse_script_content(code, ScriptOrStyleLang::Data)
-    }
     (_, b"script") => parse_script_content(code, script_lang(&attributes)),
     (_, b"style") => parse_style_content(code),
     (Namespace::Html, b"textarea") => parse_textarea_content(code),

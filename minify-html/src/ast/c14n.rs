@@ -85,57 +85,48 @@ pub fn c14n_serialise_ast<T: Write>(out: &mut T, node: &NodeData) -> std::io::Re
     }
     NodeData::Element {
       attributes,
-      raw_opening_tag,
       closing_tag,
       children,
       name,
       ..
     } => {
-      let closing_name = raw_opening_tag
-        .as_deref()
-        .and_then(|raw| raw.get(1..1 + name.len()))
-        .unwrap_or(name.as_slice());
-      if let Some(raw) = raw_opening_tag {
-        out.write_all(raw)?;
-      } else {
-        out.write_all(b"<")?;
+      out.write_all(b"<")?;
+      out.write_all(name)?;
+      let mut attrs_sorted = attributes.iter().collect::<Vec<_>>();
+      attrs_sorted.sort_unstable_by(|a, b| a.0.cmp(b.0));
+      for (name, value) in attrs_sorted.iter() {
+        out.write_all(b" ")?;
         out.write_all(name)?;
-        let mut attrs_sorted = attributes.iter().collect::<Vec<_>>();
-        attrs_sorted.sort_unstable_by(|a, b| a.0.cmp(b.0));
-        for (name, value) in attrs_sorted.iter() {
-          out.write_all(b" ")?;
-          out.write_all(name)?;
-          if !value.value.is_empty() {
-            out.write_all(b"=")?;
-            match value.quote {
-              Some(b'"') => {
-                out.write_all(b"\"")?;
-                out.write_all(&DOUBLE_QUOTED_REPLACER.replace_all(&value.value))?;
-                out.write_all(b"\"")?;
-              }
-              Some(b'\'') => {
-                out.write_all(b"'")?;
-                out.write_all(&SINGLE_QUOTED_REPLACER.replace_all(&value.value))?;
-                out.write_all(b"'")?;
-              }
-              None => {
-                out.write_all(&UNQUOTED_REPLACER.replace_all(&value.value))?;
-              }
-              _ => unreachable!(),
-            };
+        if !value.value.is_empty() {
+          out.write_all(b"=")?;
+          match value.quote {
+            Some(b'"') => {
+              out.write_all(b"\"")?;
+              out.write_all(&DOUBLE_QUOTED_REPLACER.replace_all(&value.value))?;
+              out.write_all(b"\"")?;
+            }
+            Some(b'\'') => {
+              out.write_all(b"'")?;
+              out.write_all(&SINGLE_QUOTED_REPLACER.replace_all(&value.value))?;
+              out.write_all(b"'")?;
+            }
+            None => {
+              out.write_all(&UNQUOTED_REPLACER.replace_all(&value.value))?;
+            }
+            _ => unreachable!(),
           };
-        }
-        if closing_tag == &ElementClosingTag::SelfClosing {
-          out.write_all(b" /")?;
         };
-        out.write_all(b">")?;
       }
+      if closing_tag == &ElementClosingTag::SelfClosing {
+        out.write_all(b" /")?;
+      };
+      out.write_all(b">")?;
       for c in children {
         c14n_serialise_ast(out, c)?;
       }
       if closing_tag == &ElementClosingTag::Present {
         out.write_all(b"</")?;
-        out.write_all(closing_name)?;
+        out.write_all(name)?;
         out.write_all(b">")?;
       };
     }

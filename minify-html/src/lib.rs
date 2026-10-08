@@ -39,11 +39,7 @@ mod tests;
 /// assert_eq!(minified, b"<p>Hello, world!".to_vec());
 /// ```
 pub fn minify(src: &[u8], cfg: &Cfg) -> Vec<u8> {
-  let mut code = Code::new_with_opts(src, ParseOpts {
-    treat_brace_as_opaque: cfg.preserve_brace_template_syntax,
-    treat_chevron_percent_as_opaque: cfg.preserve_chevron_percent_template_syntax,
-    treat_esi_tags_as_self_closable: cfg.preserve_esi_tags,
-  });
+  let mut code = Code::new_with_opts(src, ParseOpts::from(cfg));
   let parsed = if code.opts.contains_template_syntax(src) {
     parse_template_content(&mut code)
   } else {

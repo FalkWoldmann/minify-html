@@ -30,9 +30,6 @@ pub fn minify_element(
   closing_tag: ElementClosingTag,
   children: Vec<NodeData>,
 ) {
-  let closing_tag_name = raw_opening_tag
-    .and_then(|raw| raw.get(1..1 + tag_name.len()))
-    .unwrap_or(tag_name);
   let can_omit_closing_tag = !cfg.keep_closing_tags
     && (can_omit_as_before(tag_name, next_sibling_as_element_tag_name)
       || (is_last_child_text_or_element_node && can_omit_as_last_node(parent, tag_name)));
@@ -138,6 +135,6 @@ pub fn minify_element(
     return;
   };
   out.extend_from_slice(b"</");
-  out.extend_from_slice(closing_tag_name);
+  out.extend_from_slice(tag_name);
   out.push(b'>');
 }
