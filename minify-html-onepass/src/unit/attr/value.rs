@@ -12,10 +12,10 @@ use minify_html_common::r#gen::codepoints::DOUBLE_QUOTE;
 use minify_html_common::r#gen::codepoints::NOT_UNQUOTED_ATTR_VAL_CHAR;
 use minify_html_common::r#gen::codepoints::SINGLE_QUOTE;
 use minify_html_common::r#gen::codepoints::WHITESPACE;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 // See comment in `process_attr_value` for full description of why these intentionally do not have semicolons.
-static ENCODED: Lazy<AHashMap<u8, &'static [u8]>> = Lazy::new(|| {
+static ENCODED: LazyLock<AHashMap<u8, &'static [u8]>> = LazyLock::new(|| {
     let mut m = AHashMap::<u8, &'static [u8]>::default();
     m.insert(b'\'', b"&#39");
     m.insert(b'"', b"&#34");

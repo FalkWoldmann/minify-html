@@ -27,7 +27,7 @@ use minify_html_common::whitespace::collapse_whitespace;
 use minify_html_common::whitespace::is_all_whitespace;
 use minify_html_common::whitespace::left_trim;
 use minify_html_common::whitespace::right_trim;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 enum ContentType {
@@ -154,14 +154,14 @@ fn build_content_type_matcher(
     )
 }
 
-static CONTENT_TYPE_MATCHER: Lazy<(AhoCorasick, Vec<ContentType>)> =
-    Lazy::new(|| build_content_type_matcher(false, false));
-static CONTENT_TYPE_MATCHER_OPAQUE_BRACE: Lazy<(AhoCorasick, Vec<ContentType>)> =
-    Lazy::new(|| build_content_type_matcher(true, false));
-static CONTENT_TYPE_MATCHER_OPAQUE_CP: Lazy<(AhoCorasick, Vec<ContentType>)> =
-    Lazy::new(|| build_content_type_matcher(false, true));
-static CONTENT_TYPE_MATCHER_OPAQUE_BRACE_CP: Lazy<(AhoCorasick, Vec<ContentType>)> =
-    Lazy::new(|| build_content_type_matcher(true, true));
+static CONTENT_TYPE_MATCHER: LazyLock<(AhoCorasick, Vec<ContentType>)> =
+    LazyLock::new(|| build_content_type_matcher(false, false));
+static CONTENT_TYPE_MATCHER_OPAQUE_BRACE: LazyLock<(AhoCorasick, Vec<ContentType>)> =
+    LazyLock::new(|| build_content_type_matcher(true, false));
+static CONTENT_TYPE_MATCHER_OPAQUE_CP: LazyLock<(AhoCorasick, Vec<ContentType>)> =
+    LazyLock::new(|| build_content_type_matcher(false, true));
+static CONTENT_TYPE_MATCHER_OPAQUE_BRACE_CP: LazyLock<(AhoCorasick, Vec<ContentType>)> =
+    LazyLock::new(|| build_content_type_matcher(true, true));
 
 fn content_type_matcher(code: &Code) -> &'static (AhoCorasick, Vec<ContentType>) {
     match (

@@ -8,9 +8,9 @@ use minify_html_common::r#gen::entities::EntityType;
 use minify_html_common::r#gen::entities::SHORTER_ENCODED_ENTITIES_DECODED;
 use minify_html_common::r#gen::entities::SHORTER_ENCODED_ENTITIES_ENCODED;
 use minify_html_common::pattern::TrieNodeMatch;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
-static SHORTER_ENCODED_ENTITIES_ENCODED_SEARCHER: Lazy<AhoCorasick> = Lazy::new(|| {
+static SHORTER_ENCODED_ENTITIES_ENCODED_SEARCHER: LazyLock<AhoCorasick> = LazyLock::new(|| {
     AhoCorasickBuilder::new()
         .match_kind(MatchKind::LeftmostLongest)
         .build(SHORTER_ENCODED_ENTITIES_DECODED)

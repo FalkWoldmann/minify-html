@@ -22,7 +22,7 @@ use minify_html_common::whitespace::collapse_whitespace;
 use minify_html_common::whitespace::is_all_whitespace;
 use minify_html_common::whitespace::left_trim;
 use minify_html_common::whitespace::right_trim;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 fn build_optimal_chevron_replacer() -> Replacer {
     let mut patterns = Vec::<Vec<u8>>::new();
@@ -53,8 +53,10 @@ fn build_whatwg_chevron_replacer() -> Replacer {
     )
 }
 
-static OPTIMAL_CHEVRON_REPLACER: Lazy<Replacer> = Lazy::new(|| build_optimal_chevron_replacer());
-static WHATWG_CHEVRON_REPLACER: Lazy<Replacer> = Lazy::new(|| build_whatwg_chevron_replacer());
+static OPTIMAL_CHEVRON_REPLACER: LazyLock<Replacer> =
+    LazyLock::new(|| build_optimal_chevron_replacer());
+static WHATWG_CHEVRON_REPLACER: LazyLock<Replacer> =
+    LazyLock::new(|| build_whatwg_chevron_replacer());
 
 pub fn minify_content(
     cfg: &Cfg,

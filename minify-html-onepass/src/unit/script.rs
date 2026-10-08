@@ -5,7 +5,6 @@ use crate::proc::MatchMode::*;
 use crate::proc::Processor;
 use aho_corasick::AhoCorasick;
 use aho_corasick::AhoCorasickBuilder;
-use once_cell::sync::Lazy;
 use oxc_allocator::Allocator;
 use oxc_codegen::Codegen;
 use oxc_codegen::CodegenOptions;
@@ -16,8 +15,9 @@ use oxc_minifier::Minifier;
 use oxc_minifier::MinifierOptions;
 use oxc_parser::Parser;
 use oxc_span::SourceType;
+use std::sync::LazyLock;
 
-static SCRIPT_END: Lazy<AhoCorasick> = Lazy::new(|| {
+static SCRIPT_END: LazyLock<AhoCorasick> = LazyLock::new(|| {
     AhoCorasickBuilder::new()
         .ascii_case_insensitive(true)
         .build(["</script"])

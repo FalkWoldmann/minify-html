@@ -4,10 +4,10 @@ use crate::proc::MatchMode::*;
 use crate::proc::Processor;
 use aho_corasick::AhoCorasick;
 use aho_corasick::AhoCorasickBuilder;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
-static INSTRUCTION_END: Lazy<AhoCorasick> =
-    Lazy::new(|| AhoCorasickBuilder::new().build(["?>"]).unwrap());
+static INSTRUCTION_END: LazyLock<AhoCorasick> =
+    LazyLock::new(|| AhoCorasickBuilder::new().build(["?>"]).unwrap());
 
 #[inline(always)]
 pub fn process_instruction(proc: &mut Processor) -> ProcessingResult<()> {

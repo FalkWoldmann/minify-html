@@ -3,10 +3,10 @@ use crate::ast::NodeData;
 use aho_corasick::AhoCorasickBuilder;
 use aho_corasick::MatchKind;
 use minify_html_common::pattern::Replacer;
-use once_cell::sync::Lazy;
 use std::io::Write;
+use std::sync::LazyLock;
 
-static TEXT_REPLACER: Lazy<Replacer> = Lazy::new(|| {
+static TEXT_REPLACER: LazyLock<Replacer> = LazyLock::new(|| {
     Replacer::new(
         AhoCorasickBuilder::new()
             .match_kind(MatchKind::LeftmostLongest)
@@ -15,7 +15,7 @@ static TEXT_REPLACER: Lazy<Replacer> = Lazy::new(|| {
         vec![b"&amp;".to_vec(), b"&lt;".to_vec()],
     )
 });
-static DOUBLE_QUOTED_REPLACER: Lazy<Replacer> = Lazy::new(|| {
+static DOUBLE_QUOTED_REPLACER: LazyLock<Replacer> = LazyLock::new(|| {
     Replacer::new(
         AhoCorasickBuilder::new()
             .match_kind(MatchKind::LeftmostLongest)
@@ -24,7 +24,7 @@ static DOUBLE_QUOTED_REPLACER: Lazy<Replacer> = Lazy::new(|| {
         vec![b"&amp;".to_vec(), b"&#34;".to_vec()],
     )
 });
-static SINGLE_QUOTED_REPLACER: Lazy<Replacer> = Lazy::new(|| {
+static SINGLE_QUOTED_REPLACER: LazyLock<Replacer> = LazyLock::new(|| {
     Replacer::new(
         AhoCorasickBuilder::new()
             .match_kind(MatchKind::LeftmostLongest)
@@ -33,7 +33,7 @@ static SINGLE_QUOTED_REPLACER: Lazy<Replacer> = Lazy::new(|| {
         vec![b"&amp;".to_vec(), b"&#39;".to_vec()],
     )
 });
-static UNQUOTED_REPLACER: Lazy<Replacer> = Lazy::new(|| {
+static UNQUOTED_REPLACER: LazyLock<Replacer> = LazyLock::new(|| {
     Replacer::new(
         AhoCorasickBuilder::new()
             .match_kind(MatchKind::LeftmostLongest)

@@ -4,9 +4,9 @@ use crate::parse::Code;
 use crate::parse::content::ParsedContent;
 use aho_corasick::AhoCorasick;
 use aho_corasick::AhoCorasickBuilder;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
-static END: Lazy<AhoCorasick> = Lazy::new(|| {
+static END: LazyLock<AhoCorasick> = LazyLock::new(|| {
     AhoCorasickBuilder::new()
         .ascii_case_insensitive(true)
         .build(["</script"])

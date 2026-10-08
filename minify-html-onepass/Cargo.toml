@@ -21,7 +21,6 @@ aho-corasick.workspace = true
 lightningcss.workspace = true
 memchr.workspace = true
 minify-html-common.workspace = true
-once_cell.workspace = true
 oxc_allocator.workspace = true
 oxc_codegen.workspace = true
 oxc_minifier.workspace = true

@@ -1,6 +1,6 @@
 use crate::spec::tag::ns::Namespace;
 use ahash::AHashMap;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 pub struct WhitespaceMinification {
     pub collapse: bool,
@@ -58,9 +58,9 @@ static DEFAULT_SVG: &WhitespaceMinification = &WhitespaceMinification {
     trim: true,
 };
 
-static HTML_TAG_WHITESPACE_MINIFICATION: Lazy<
+static HTML_TAG_WHITESPACE_MINIFICATION: LazyLock<
     AHashMap<&'static [u8], &'static WhitespaceMinification>,
-> = Lazy::new(|| {
+> = LazyLock::new(|| {
     let mut m = AHashMap::<&'static [u8], &'static WhitespaceMinification>::default();
     // Content tags.
     m.insert(b"address", CONTENT);
@@ -174,9 +174,9 @@ static HTML_TAG_WHITESPACE_MINIFICATION: Lazy<
     m
 });
 
-static SVG_TAG_WHITESPACE_MINIFICATION: Lazy<
+static SVG_TAG_WHITESPACE_MINIFICATION: LazyLock<
     AHashMap<&'static [u8], &'static WhitespaceMinification>,
-> = Lazy::new(|| {
+> = LazyLock::new(|| {
     let mut m = AHashMap::<&'static [u8], &'static WhitespaceMinification>::default();
 
     // Content tags.

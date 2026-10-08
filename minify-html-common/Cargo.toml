@@ -15,7 +15,6 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 ahash.workspace = true
 aho-corasick.workspace = true
-once_cell.workspace = true
 
 [build-dependencies]
 itertools.workspace = true

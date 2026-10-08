@@ -16,8 +16,8 @@ use minify_html_common::whitespace::collapse_whitespace;
 use minify_html_common::whitespace::left_trim;
 use minify_html_common::whitespace::remove_all_whitespace;
 use minify_html_common::whitespace::right_trim;
-use once_cell::sync::Lazy;
 use std::str::from_utf8;
+use std::sync::LazyLock;
 
 fn build_double_quoted_replacer() -> Replacer {
     let mut patterns = Vec::<Vec<u8>>::new();
@@ -244,18 +244,21 @@ fn build_whatwg_unquoted_replacer() -> Replacer {
     )
 }
 
-static DOUBLE_QUOTED_REPLACER: Lazy<Replacer> = Lazy::new(|| build_double_quoted_replacer());
-static SINGLE_QUOTED_REPLACER: Lazy<Replacer> = Lazy::new(|| build_single_quoted_replacer());
-static UNQUOTED_REPLACER: Lazy<Replacer> = Lazy::new(|| build_unquoted_replacer());
-static SEMI_WHATWG_UNQUOTED_REPLACER: Lazy<Replacer> =
-    Lazy::new(|| build_semi_whatwg_unquoted_replacer());
-static WHATWG_DOUBLE_QUOTED_REPLACER: Lazy<Replacer> =
-    Lazy::new(|| build_whatwg_double_quoted_replacer());
-static WHATWG_SINGLE_QUOTED_REPLACER: Lazy<Replacer> =
-    Lazy::new(|| build_whatwg_single_quoted_replacer());
-static WHATWG_UNQUOTED_REPLACER: Lazy<Replacer> = Lazy::new(|| build_whatwg_unquoted_replacer());
+static DOUBLE_QUOTED_REPLACER: LazyLock<Replacer> =
+    LazyLock::new(|| build_double_quoted_replacer());
+static SINGLE_QUOTED_REPLACER: LazyLock<Replacer> =
+    LazyLock::new(|| build_single_quoted_replacer());
+static UNQUOTED_REPLACER: LazyLock<Replacer> = LazyLock::new(|| build_unquoted_replacer());
+static SEMI_WHATWG_UNQUOTED_REPLACER: LazyLock<Replacer> =
+    LazyLock::new(|| build_semi_whatwg_unquoted_replacer());
+static WHATWG_DOUBLE_QUOTED_REPLACER: LazyLock<Replacer> =
+    LazyLock::new(|| build_whatwg_double_quoted_replacer());
+static WHATWG_SINGLE_QUOTED_REPLACER: LazyLock<Replacer> =
+    LazyLock::new(|| build_whatwg_single_quoted_replacer());
+static WHATWG_UNQUOTED_REPLACER: LazyLock<Replacer> =
+    LazyLock::new(|| build_whatwg_unquoted_replacer());
 // An unquoted source value gets double quotes, so escape what XML doesn't allow inside them.
-static ESI_UNQUOTED_REPLACER: Lazy<Replacer> = Lazy::new(|| {
+static ESI_UNQUOTED_REPLACER: LazyLock<Replacer> = LazyLock::new(|| {
     Replacer::new(
         AhoCorasickBuilder::new()
             .build([b"\"".as_slice(), b"<".as_slice()])

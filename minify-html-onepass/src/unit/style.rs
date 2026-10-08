@@ -9,10 +9,10 @@ use lightningcss::stylesheet::MinifyOptions;
 use lightningcss::stylesheet::ParserOptions;
 use lightningcss::stylesheet::PrinterOptions;
 use lightningcss::stylesheet::StyleSheet;
-use once_cell::sync::Lazy;
 use std::str::from_utf8_unchecked;
+use std::sync::LazyLock;
 
-static STYLE_END: Lazy<AhoCorasick> = Lazy::new(|| {
+static STYLE_END: LazyLock<AhoCorasick> = LazyLock::new(|| {
     AhoCorasickBuilder::new()
         .ascii_case_insensitive(true)
         .build(["</style"])

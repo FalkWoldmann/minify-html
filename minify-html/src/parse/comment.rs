@@ -2,10 +2,10 @@ use crate::ast::NodeData;
 use crate::parse::Code;
 use aho_corasick::AhoCorasick;
 use aho_corasick::AhoCorasickBuilder;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
-static COMMENT_END: Lazy<AhoCorasick> =
-    Lazy::new(|| AhoCorasickBuilder::new().build(["-->"]).unwrap());
+static COMMENT_END: LazyLock<AhoCorasick> =
+    LazyLock::new(|| AhoCorasickBuilder::new().build(["-->"]).unwrap());
 
 pub fn parse_comment(code: &mut Code) -> NodeData {
     debug_assert!(code.as_slice().starts_with(b"<!--"));
