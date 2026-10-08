@@ -34,8 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # .rustfmt.toml uses unstable options, so formatting needs nightly, the
-      # same as the repo's ./format script.
+      # Default rustfmt settings; nightly matches the toolchain used locally.
       - name: Install nightly rustfmt
         uses: dtolnay/rust-toolchain@nightly
         with:
