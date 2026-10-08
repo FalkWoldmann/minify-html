@@ -1,6 +1,5 @@
 bin/
 build/
-Cargo.lock
 dist/
 node_modules/
 npm-debug.log*
