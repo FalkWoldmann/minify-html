@@ -2,7 +2,8 @@
 publish = false
 name = "c14n"
 version = "0.0.1"
-edition = "2018"
+edition.workspace = true
+rust-version.workspace = true
 
 [dependencies]
-minify-html = { path = "../../../minify-html" }
+minify-html.workspace = true

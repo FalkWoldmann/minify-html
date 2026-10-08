@@ -32,6 +32,9 @@ while (versionPart < 3) {
 console.log(`${currentVersion.join(".")} => ${newVersion.join(".")}`);
 
 const NEW_VERSION = newVersion.join(".");
+// Dependency requirements pin the major version for 1.x and later, and the minor version for 0.x.
+const NEW_VERSION_REQ =
+  newVersion[0] > 0 ? `${newVersion[0]}` : newVersion.slice(0, 2).join(".");
 
 const cmd = (...cfg) => {
   const command = cfg[0];
@@ -95,19 +98,25 @@ cmd("cargo", "test");
 
 replaceInFile("CHANGELOG.md", /^## Pending$/m, `## ${NEW_VERSION}`);
 
-for (const f of [
-  "minify-html-onepass/Cargo.toml",
-  "minify-html/Cargo.toml",
-]) {
-  replaceInFile(
-    f,
-    /^version = "\d+\.\d+\.\d+"\s*$/m,
-    `version = "${NEW_VERSION}"`
-  );
-}
+// minify-html and minify-html-onepass inherit `[workspace.package]` version, and are also
+// listed with a version requirement in `[workspace.dependencies]`.
+replaceInFile(
+  "Cargo.toml",
+  /^version = "\d+\.\d+\.\d+"\s*$/m,
+  `version = "${NEW_VERSION}"`
+);
+replaceInFile(
+  "Cargo.toml",
+  /^(minify-html(?:-onepass)? = \{ version = )"\d+(?:\.\d+){0,2}"/gm,
+  `$1"${NEW_VERSION_REQ}"`
+);
 
 for (const f of ["README.md"]) {
-  replaceInFile(f, /^(minify-html = )"\d+\.\d+\.\d+"/m, `$1"${NEW_VERSION}"`);
+  replaceInFile(
+    f,
+    /^(minify-html = )"\d+(?:\.\d+){0,2}"/m,
+    `$1"${NEW_VERSION_REQ}"`
+  );
 }
 
 cmd("git", "add", "-A");

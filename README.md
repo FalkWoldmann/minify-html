@@ -28,7 +28,7 @@ The [onepass](https://github.com/wilsonzlin/minify-html/tree/master/minify-html-
 
 ```toml
 [dependencies]
-minify-html = "0.18.1"
+minify-html = "0.18"
 ```
 
 ### Use

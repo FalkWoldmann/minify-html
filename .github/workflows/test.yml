@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # oxc requires a recent Rust.
+      # oxc requires a recent Rust, see `rust-version` in Cargo.toml.
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 

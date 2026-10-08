@@ -1,5 +1,5 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = [
   "bench/runners/minify-html-onepass",
   "bench/runners/minify-html",
@@ -9,6 +9,34 @@ members = [
   "minify-html-onepass",
   "minify-html",
 ]
+
+[workspace.package]
+version = "0.18.1"
+authors = ["Wilson Lin <code@wilsonl.in>"]
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+homepage = "https://github.com/wilsonzlin/minify-html"
+repository = "https://github.com/wilsonzlin/minify-html.git"
+keywords = ["html", "compress", "minifier", "js", "css"]
+
+[workspace.dependencies]
+ahash = "0.8"
+aho-corasick = "1"
+itertools = "0.14"
+lightningcss = "1.0.0-alpha.68"
+memchr = "2"
+minify-html = { version = "0.18", path = "minify-html" }
+minify-html-common = { version = "0.0.3", path = "minify-html-common" }
+minify-html-onepass = { version = "0.18", path = "minify-html-onepass" }
+once_cell = "1"
+oxc_allocator = "0.139"
+oxc_codegen = "0.139"
+oxc_minifier = "0.139"
+oxc_parser = "0.139"
+oxc_span = "0.139"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [profile.release]
 codegen-units = 1
