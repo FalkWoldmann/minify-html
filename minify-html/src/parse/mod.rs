@@ -28,6 +28,44 @@ impl ParseOpts {
         || (self.treat_chevron_percent_as_opaque && seq == b"<%")
     })
   }
+
+  // True if `source` has a directive that can render different literal markup on different
+  // paths, e.g. close a `<pre>` in only one branch. Expressions, comments and directives that
+  // render their body exactly once can't.
+  pub fn contains_branching_directive(&self, source: &[u8]) -> bool {
+    (0..source.len()).any(|i| {
+      let rest = &source[i..];
+      (self.treat_brace_as_opaque && rest.starts_with(b"{%") && !is_linear_brace_directive(rest))
+        || (self.treat_chevron_percent_as_opaque
+          && rest.starts_with(b"<%")
+          && !matches!(rest.get(2), Some(b'=' | b'#' | b'@'))
+          && !rest.starts_with(b"<%--"))
+    })
+  }
+}
+
+// Directives that define or render their body exactly once, so markup around them can't differ
+// between render paths.
+fn is_linear_brace_directive(source: &[u8]) -> bool {
+  let body = source[2..].trim_ascii_start();
+  let body = strip_whitespace_control(body).trim_ascii_start();
+  let len = body
+    .iter()
+    .take_while(|c| c.is_ascii_alphanumeric() || **c == b'_')
+    .count();
+  matches!(
+    &body[..len],
+    b"block"
+      | b"endblock"
+      | b"call"
+      | b"include"
+      | b"import"
+      | b"extends"
+      | b"let"
+      | b"set"
+      | b"filter"
+      | b"endfilter"
+  )
 }
 
 fn brace_directive_len(source: &[u8], name: &[u8]) -> Option<usize> {
@@ -194,6 +232,7 @@ impl<'c> Code<'c> {
     let mut quote = None;
     let mut braces = 0usize;
     let mut comment_depth = 1usize;
+    let mut found = false;
     while len < self.rem() {
       let remaining = &self.as_slice()[len..];
       if seq == b"#}" && remaining.starts_with(b"{#") {
@@ -214,6 +253,7 @@ impl<'c> Code<'c> {
             continue;
           }
         }
+        found = true;
         break;
       }
       let c = remaining[0];
@@ -234,6 +274,13 @@ impl<'c> Code<'c> {
         }
       }
       len += 1;
+    }
+    if !found && seq != b"#}" {
+      // An apostrophe in a comment or a Rust lifetime has no closing quote. Rather than letting
+      // the token run to EOF, fall back to the first closing delimiter.
+      if let Some(end) = memchr::memmem::find(self.as_slice(), seq) {
+        len = end + seq.len();
+      }
     }
     self.slice_and_shift(len)
   }

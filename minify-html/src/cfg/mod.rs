@@ -29,7 +29,9 @@ pub struct Cfg {
   /// Normal HTML whitespace and attribute separators are compacted; quoted values, token
   /// internals, significant inline separators and explicit closing tags remain intact.
   /// Preformatted/raw content, rawtext/RCDATA and foreign or uncertain contexts retain whitespace.
-  /// Literal HTML start tags, safe comments and doctypes are still minified.
+  /// Literal HTML start tags, safe comments and doctypes are still minified. Each file is
+  /// compacted as if it renders in normal flow, so a block, macro or include that a parent renders
+  /// inside `<pre>`, `<textarea>` or `<code>` loses its whitespace.
   pub preserve_brace_template_syntax: bool,
   /// Preserve `<% ... %>` syntax using the same token-preserving path as brace templates.
   /// Attribute templates are treated as opaque, including quoted strings inside expressions.

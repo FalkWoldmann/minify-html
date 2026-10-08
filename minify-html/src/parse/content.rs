@@ -1,5 +1,6 @@
 use crate::ast::ElementClosingTag;
 use crate::ast::NodeData;
+use crate::ast::ScriptOrStyleLang;
 use crate::entity::decode::decode_entities;
 use crate::parse::bang::parse_bang;
 use crate::parse::brace_directive_len;
@@ -10,6 +11,7 @@ use crate::parse::element::is_esi_tag;
 use crate::parse::element::parse_element;
 use crate::parse::element::parse_tag;
 use crate::parse::element::peek_tag_name;
+use crate::parse::element::script_lang;
 use crate::parse::instruction::parse_instruction;
 use crate::parse::Code;
 use aho_corasick::AhoCorasick;
@@ -185,6 +187,102 @@ fn literal_tag_name(source: &[u8]) -> Option<&[u8]> {
   (len != 0).then_some(&source[..len])
 }
 
+// Elements that are block-level or hidden by default, so whitespace between two of them never
+// renders. This is narrower than the layout whitespace rule for element content, which also covers
+// inline elements like `select` and `picture`.
+fn is_block_level(name: &[u8]) -> bool {
+  matches!(
+    name.to_ascii_lowercase().as_slice(),
+    b"address"
+      | b"article"
+      | b"aside"
+      | b"base"
+      | b"blockquote"
+      | b"body"
+      | b"caption"
+      | b"col"
+      | b"colgroup"
+      | b"datalist"
+      | b"dd"
+      | b"details"
+      | b"dialog"
+      | b"div"
+      | b"dl"
+      | b"dt"
+      | b"fieldset"
+      | b"figcaption"
+      | b"figure"
+      | b"footer"
+      | b"form"
+      | b"h1"
+      | b"h2"
+      | b"h3"
+      | b"h4"
+      | b"h5"
+      | b"h6"
+      | b"head"
+      | b"header"
+      | b"hgroup"
+      | b"hr"
+      | b"html"
+      | b"li"
+      | b"link"
+      | b"main"
+      | b"menu"
+      | b"meta"
+      | b"nav"
+      | b"ol"
+      | b"optgroup"
+      | b"option"
+      | b"p"
+      | b"script"
+      | b"section"
+      | b"style"
+      | b"summary"
+      | b"table"
+      | b"tbody"
+      | b"td"
+      | b"template"
+      | b"tfoot"
+      | b"th"
+      | b"thead"
+      | b"title"
+      | b"tr"
+      | b"ul"
+  )
+}
+
+// Literal markup inside a raw block is output as is, so it can open an element whose content
+// must not be compacted, or leave a start tag unclosed.
+fn opens_any_tag(source: &[u8], names: &[&[u8]]) -> bool {
+  source.split(|&c| c == b'<').skip(1).any(|rest| {
+    let len = rest.iter().take_while(|&&c| TAG_NAME_CHAR[c]).count();
+    names
+      .iter()
+      .any(|name| rest[..len].eq_ignore_ascii_case(name))
+  })
+}
+
+fn leaves_tag_open(source: &[u8]) -> bool {
+  memchr::memrchr(b'<', source).is_some_and(|i| memchr::memchr(b'>', &source[i..]).is_none())
+}
+
+const WHITESPACE_SENSITIVE_TAGS: &[&[u8]] = &[
+  b"code",
+  b"iframe",
+  b"listing",
+  b"noembed",
+  b"noframes",
+  b"noscript",
+  b"plaintext",
+  b"pre",
+  b"script",
+  b"style",
+  b"textarea",
+  b"title",
+  b"xmp",
+];
+
 fn compact_template_text(value: &mut Vec<u8>, previous: Option<&NodeData>, next: &[u8]) {
   let next_name = literal_tag_name(next);
   let previous_name = match previous {
@@ -213,12 +311,8 @@ fn compact_template_text(value: &mut Vec<u8>, previous: Option<&NodeData>, next:
   // A separator between inline or unknown/custom elements can be visible.
   // Remove whitespace-only runs only between two known layout boundaries.
   if is_all_whitespace(value)
-    && previous_name.is_some_and(|name| {
-      get_whitespace_minification_for_tag(Namespace::Html, name, false).destroy_whole
-    })
-    && next_name.is_some_and(|name| {
-      get_whitespace_minification_for_tag(Namespace::Html, name, false).destroy_whole
-    })
+    && previous_name.is_some_and(is_block_level)
+    && next_name.is_some_and(is_block_level)
   {
     value.clear();
   } else {
@@ -253,6 +347,16 @@ pub fn parse_template_content(code: &mut Code) -> ParsedContent {
         // Entities remain source bytes; only HTML whitespace is compacted.
         compact_template_text(&mut raw_source, nodes.last(), code.as_slice());
       }
+      // `<{{ tag }}` is a start tag whose name the tokenizer can't see. Its quoted values follow
+      // as text, and it can open a `<pre>` or `<script>`, so stop compacting from here on.
+      if raw_source.ends_with(b"<")
+        && matches!(
+          typ,
+          OpaqueBraceBrace | OpaqueBraceHash | OpaqueBracePercent | OpaqueChevronPercent
+        )
+      {
+        uncertain_whitespace_sensitive = true;
+      }
       if !raw_source.is_empty() {
         nodes.push(NodeData::Opaque { raw_source });
       }
@@ -264,7 +368,11 @@ pub fn parse_template_content(code: &mut Code) -> ParsedContent {
         let mut tag = parse_tag(code);
         let foreign_root = matches!(tag.name.as_slice(), b"svg" | b"math");
         let foreign = foreign_depth != 0 || uncertain_foreign || foreign_root;
-        if foreign && code.opts.contains_template_syntax(code.slice_since(start)) {
+        if foreign
+          && code
+            .opts
+            .contains_branching_directive(code.slice_since(start))
+        {
           // A directive in foreign markup can change the namespace in later
           // branches. Retain subsequent headers instead of guessing a context.
           uncertain_foreign = true;
@@ -317,12 +425,23 @@ pub fn parse_template_content(code: &mut Code) -> ParsedContent {
         // tag. Later source may still be raw content on another branch, so it
         // must not be interpreted as normal HTML tokens.
         let uncertain_special_content = special_content
-          && body.as_ref().is_some_and(|body| {
-            body.windows(2).any(|seq| {
-              (code.opts.treat_brace_as_opaque && seq == b"{%")
-                || (code.opts.treat_chevron_percent_as_opaque && seq == b"<%")
-            })
-          });
+          && body
+            .as_ref()
+            .is_some_and(|body| code.opts.contains_branching_directive(body));
+        // A literal script or style body under a literal start tag is minified as usual. A
+        // templated start tag can change the script type, so its body stays as is.
+        let script_or_style_lang = match tag.name.as_slice() {
+          _ if tag.raw_opening_tag.is_some() => None,
+          _ if body
+            .as_ref()
+            .is_some_and(|body| code.opts.contains_template_syntax(body)) =>
+          {
+            None
+          }
+          b"script" => Some(script_lang(&tag.attributes)),
+          b"style" => Some(ScriptOrStyleLang::CSS),
+          _ => None,
+        };
         nodes.push(NodeData::Element {
           attributes: tag.attributes,
           raw_opening_tag: tag.raw_opening_tag,
@@ -332,8 +451,10 @@ pub fn parse_template_content(code: &mut Code) -> ParsedContent {
           namespace: Namespace::Html,
           next_sibling_element_name: Vec::new(),
         });
-        if let Some(raw_source) = body {
-          nodes.push(NodeData::Opaque { raw_source });
+        match (body, script_or_style_lang) {
+          (Some(code), Some(lang)) => nodes.push(NodeData::ScriptOrStyleContent { code, lang }),
+          (Some(raw_source), None) => nodes.push(NodeData::Opaque { raw_source }),
+          (None, _) => {}
         }
         if uncertain_special_content {
           nodes.push(NodeData::Opaque {
@@ -391,37 +512,28 @@ pub fn parse_template_content(code: &mut Code) -> ParsedContent {
         }
       }
       OpaqueBraceBrace | OpaqueBraceHash | OpaqueBracePercent | OpaqueChevronPercent => {
-        if foreign_depth != 0 {
-          uncertain_foreign = true;
-        }
-        if (pre_depth != 0 || code_depth != 0)
-          && matches!(typ, OpaqueBracePercent | OpaqueChevronPercent)
-        {
-          // A branch may close a sensitive element on only one path. Preserve
-          // subsequent text rather than guessing which path owns each token.
-          uncertain_whitespace_sensitive = true;
-        }
         let start = code.take_checkpoint();
         let raw_block =
           code.opts.treat_brace_as_opaque && brace_directive_len(code.as_slice(), b"raw").is_some();
         code.shift_template();
+        let token = code.slice_since(start);
         if raw_block {
-          // A raw block can leave preformatted markup open. Retain subsequent
-          // text, and also foreign headers if its literal output may open SVG
-          // or MathML. Do not interpret or rewrite the raw body itself.
-          uncertain_whitespace_sensitive = true;
-          uncertain_foreign |= code
-            .slice_since(start)
-            .split(|&c| c == b'<')
-            .skip(1)
-            .any(|rest| {
-              let len = rest.iter().take_while(|&&c| TAG_NAME_CHAR[c]).count();
-              let name = &rest[..len];
-              name.eq_ignore_ascii_case(b"svg") || name.eq_ignore_ascii_case(b"math")
-            });
+          // A raw block's literal output can open preformatted, rawtext or foreign markup, or
+          // leave a start tag open. Retain what follows in that case, without interpreting or
+          // rewriting the raw body itself.
+          uncertain_whitespace_sensitive |=
+            opens_any_tag(token, WHITESPACE_SENSITIVE_TAGS) || leaves_tag_open(token);
+          uncertain_foreign |= opens_any_tag(token, &[b"svg", b"math"]);
+        } else if matches!(typ, OpaqueBracePercent | OpaqueChevronPercent)
+          && code.opts.contains_branching_directive(token)
+        {
+          // A branch may close a sensitive or foreign element on only one path. Preserve
+          // subsequent text rather than guessing which path owns each token.
+          uncertain_foreign |= foreign_depth != 0;
+          uncertain_whitespace_sensitive |= pre_depth != 0 || code_depth != 0;
         }
         nodes.push(NodeData::Opaque {
-          raw_source: code.slice_since(start).to_vec(),
+          raw_source: token.to_vec(),
         });
       }
       IgnoredTag | MalformedLeftChevronSlash | OmittedClosingTag => unreachable!(),

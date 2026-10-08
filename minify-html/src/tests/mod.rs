@@ -568,6 +568,102 @@ fn should_preserve_empty_esi_values_comments_and_following_siblings() {
 }
 
 #[test]
+fn should_keep_separators_between_inline_layout_elements_in_templates() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  let source = b"<p>{{ x }}<select><option>a</select>\n  <select><option>b</select> <picture><img src=a></picture>\n<picture><img src=b></picture></p>";
+  eval_with_cfg(
+    source,
+    b"<p>{{ x }}<select><option>a</select> <select><option>b</select> <picture><img src=a></picture> <picture><img src=b></picture></p>",
+    &cfg,
+  );
+}
+
+#[test]
+fn should_not_compact_after_a_templated_tag_name() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  // The tag could be a `<pre>` or `<script>`, and its quoted values follow as text.
+  let source =
+    br#"<{{ tag }} class="a  b"  title="x   y">  text  </{{ tag }}><div>  after  </div>"#;
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_keep_quoted_values_after_an_apostrophe_in_an_unquoted_value() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    b"<a\n  data-x=it's\n  title='{{ x }}  y  z'>x</a>",
+    b"<a data-x=it's title='{{ x }}  y  z'>x</a>",
+    &cfg,
+  );
+}
+
+#[test]
+fn should_keep_compacting_after_linear_directives_and_expressions() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    ..Cfg::default()
+  };
+  // A block in a title can't select another closing tag, so the rest is minified as usual.
+  eval_with_cfg(
+    b"<title>{% block title %}Home{% endblock %}</title>\n<div>\n  text\n</div><!-- c -->",
+    b"<title>{% block title %}Home{% endblock %}</title><div>text</div>",
+    &cfg,
+  );
+  // Expressions inside SVG can't change its namespace.
+  eval_with_cfg(
+    b"<svg><text>{{ label }}</text></svg>\n<div>\n  a\n</div>",
+    b"<svg><text>{{ label }}</text></svg> <div>a</div>",
+    &cfg,
+  );
+  // A raw block that doesn't open preformatted or rawtext markup leaves the rest compactable.
+  eval_with_cfg(
+    b"{% raw %}{{ x }}{% endraw %}\n<div>\n  a\n</div>",
+    b"{% raw %}{{ x }}{% endraw %} <div>a</div>",
+    &cfg,
+  );
+  // One that leaves a start tag open doesn't.
+  let source = b"{% raw %}<div{% endraw %} title=\"a  b\">\n  a\n</div>{{ x }}";
+  eval_with_cfg(source, source, &cfg);
+}
+
+#[test]
+fn should_minify_literal_scripts_and_styles_in_templates() {
+  let cfg = Cfg {
+    preserve_brace_template_syntax: true,
+    minify_css: true,
+    minify_js: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    b"<style> a { color : red } </style><script> let  x = 1 ; </script><script type=text/plain> a  b </script><p>{{ x }}</p>",
+    b"<style>a{color:red}</style><script>let x=1;</script><script type=text/plain> a  b </script><p>{{ x }}</p>",
+    &cfg,
+  );
+}
+
+#[test]
+fn should_end_a_chevron_comment_with_an_apostrophe_at_its_delimiter() {
+  let cfg = Cfg {
+    preserve_chevron_percent_template_syntax: true,
+    ..Cfg::default()
+  };
+  eval_with_cfg(
+    b"<%# don't do this %><div>\n  a\n</div>",
+    b"<%# don't do this %><div>a</div>",
+    &cfg,
+  );
+}
+
+#[test]
 fn test_preserve_template_chevron_percent_syntax() {
   let mut cfg = Cfg::default();
   cfg.preserve_chevron_percent_template_syntax = true;

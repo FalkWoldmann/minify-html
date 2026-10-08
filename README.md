@@ -255,7 +255,11 @@ PHP blocks (`<?php` or `<?=`) also happen to be processing instructions, which a
 
 When an enabled template delimiter occurs, the source is parsed as tokens rather than as a fully rendered HTML tree. Quoted delimiter strings, braced expressions, nested `{# ... #}` comments and `{% raw %}` blocks are preserved. Template-bearing start tags retain attribute order, quotes, quoted value bytes and token internals, but formatting whitespace between attributes is compacted to a separator. Explicit closing tags remain intact. Normal HTML text whitespace is collapsed, and whitespace-only runs between known layout boundaries are removed; inline/custom-element and expression boundaries retain their separators.
 
-Preformatted/raw content, RCDATA/rawtext bodies and foreign text retain their whitespace. Conditional sensitive/foreign boundaries deliberately retain uncertain later whitespace rather than infer a rendered branch tree. Literal HTML opening tags and safe comments/doctypes are still minified; inputs without enabled template delimiters keep the normal HTML minifier. For Askama build-time preprocessing with ESI, enable `preserve_brace_template_syntax` and `preserve_esi_tags`, keep closing and HTML/head opening tags, and leave JavaScript/CSS and possibly-noncompliant minification disabled.
+Preformatted/raw content, RCDATA/rawtext bodies and foreign text retain their whitespace. Conditional sensitive/foreign boundaries deliberately retain uncertain later whitespace rather than infer a rendered branch tree. Literal HTML opening tags and safe comments/doctypes are still minified, and so are literal `<script>` and `<style>` bodies when `minify_js`/`minify_css` are enabled. A single enabled template delimiter switches the whole document to this mode, which never omits closing tags; inputs without one keep the normal HTML minifier.
+
+Each file is compacted as if it renders in normal flow. If a child `{% block %}`, a macro or an included file is rendered inside a parent's `<pre>`, `<textarea>` or `<code>`, its whitespace will still be collapsed, so keep such content in the same file as the preformatted element or don't minify that template.
+
+For Askama build-time preprocessing with ESI, enable `preserve_brace_template_syntax` and `preserve_esi_tags`, keep closing and HTML/head opening tags, and leave possibly-noncompliant minification disabled.
 
 ## Edge Side Includes
 

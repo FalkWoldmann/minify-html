@@ -79,10 +79,13 @@ fn compact_template_tag(source: &[u8], opts: crate::parse::ParseOpts) -> Vec<u8>
   let mut code = Code::new_with_opts(source, opts);
   let mut out = Vec::with_capacity(source.len());
   let mut quote = None;
+  // A quote only starts a value right after `=`. Elsewhere, e.g. in `data-x=it's`, it's literal.
+  let mut after_equals = false;
   while !code.at_end() {
     let start = code.take_checkpoint();
     if code.shift_template() {
       out.extend_from_slice(code.slice_since(start));
+      after_equals = false;
       continue;
     }
     let c = code.as_slice()[0];
@@ -90,13 +93,14 @@ fn compact_template_tag(source: &[u8], opts: crate::parse::ParseOpts) -> Vec<u8>
       if c == delim {
         quote = None;
       }
-    } else if matches!(c, b'\'' | b'"') {
-      quote = Some(c);
     } else if WHITESPACE[c] {
       code.shift_while_in_lookup(WHITESPACE);
       out.push(b' ');
       continue;
+    } else if after_equals && matches!(c, b'\'' | b'"') {
+      quote = Some(c);
     }
+    after_equals = quote.is_none() && c == b'=';
     out.push(c);
     code.shift(1);
   }
@@ -200,6 +204,14 @@ pub fn parse_tag(code: &mut Code) -> ParsedTag {
   }
 }
 
+pub fn script_lang(attributes: &AHashMap<Vec<u8>, AttrVal>) -> ScriptOrStyleLang {
+  match attributes.get(b"type".as_ref()) {
+    Some(typ) if typ.as_slice() == b"module" => ScriptOrStyleLang::JSModule,
+    Some(mime) if !JAVASCRIPT_MIME_TYPES.contains(mime.as_slice()) => ScriptOrStyleLang::Data,
+    _ => ScriptOrStyleLang::JS,
+  }
+}
+
 // `<` must be next. `parent` should be an empty slice if it doesn't exist.
 pub fn parse_element(code: &mut Code, ns: Namespace, parent: &[u8]) -> NodeData {
   let ParsedTag {
@@ -252,15 +264,7 @@ pub fn parse_element(code: &mut Code, ns: Namespace, parent: &[u8]) -> NodeData 
     (_, b"script") if raw_opening_tag.is_some() => {
       parse_script_content(code, ScriptOrStyleLang::Data)
     }
-    (_, b"script") => match attributes.get(b"type".as_ref()) {
-      Some(typ) if typ.as_slice() == b"module" => {
-        parse_script_content(code, ScriptOrStyleLang::JSModule)
-      }
-      Some(mime) if !JAVASCRIPT_MIME_TYPES.contains(mime.as_slice()) => {
-        parse_script_content(code, ScriptOrStyleLang::Data)
-      }
-      _ => parse_script_content(code, ScriptOrStyleLang::JS),
-    },
+    (_, b"script") => parse_script_content(code, script_lang(&attributes)),
     (_, b"style") => parse_style_content(code),
     (Namespace::Html, b"textarea") => parse_textarea_content(code),
     (Namespace::Html, b"title") => parse_title_content(code),
