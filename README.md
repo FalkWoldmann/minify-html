@@ -1,16 +1,10 @@
 <h1>
 minify-html
 <img width="24" src="https://wilsonl.in/minify-html/icon/cli.png">
-<img width="24" src="https://wilsonl.in/minify-html/icon/deno.png">
-<img width="24" src="https://wilsonl.in/minify-html/icon/java.png">
-<img width="24" src="https://wilsonl.in/minify-html/icon/nodejs.png">
-<img width="24" src="https://wilsonl.in/minify-html/icon/python.png">
-<img width="24" src="https://wilsonl.in/minify-html/icon/ruby.png">
 <img width="24" src="https://wilsonl.in/minify-html/icon/rust.png">
-<img width="24" src="https://wilsonl.in/minify-html/icon/wasm.png">
 </h1>
 
-A Rust HTML minifier meticulously optimised for speed and effectiveness, with bindings for other languages.
+A Rust HTML minifier meticulously optimised for speed and effectiveness.
 
 - Advanced minification strategy beats other minifiers in effectiveness while still being much faster.
 - Handles [invalid HTML](./notes/Parsing.md) and [templating syntax](#templating-syntax).
@@ -69,184 +63,6 @@ Check out the [docs](https://docs.rs/minify-html) for API and usage examples.
 
 </details>
 
-<details>
-<summary><img width="24" src="https://wilsonl.in/minify-html/icon/deno.png"> <strong>Deno</strong></summary>
-
-- Package: [@minify-html/deno](https://jsr.io/@minify-html/deno/)
-- Binding: [WASM](https://webassembly.org/)
-- Platforms: All
-
-### Get
-
-Add the JSR package:
-
-```
-deno add jsr:@minify-html/deno
-```
-
-### Use
-
-```ts
-import init, {minify} from "@minify-html/deno";
-
-const encoder = new TextEncoder();
-const decoder = new TextDecoder();
-
-await init();
-
-const minified = decoder.decode(minify(encoder.encode("<p>  Hello, world!  </p>"), { keep_spaces_between_attributes: true, keep_comments: true }));
-```
-
-All [`Cfg` fields](https://docs.rs/minify-html/latest/minify_html/struct.Cfg.html) are available as snake_case properties on the object provided as the second argument; if any are not set, they default to `false`.
-
-</details>
-
-<details>
-<summary><img width="24" src="https://wilsonl.in/minify-html/icon/nodejs.png"> <strong>Node.js</strong></summary>
-
-- Package: [@minify-html/node](https://www.npmjs.com/package/@minify-html/node)
-- Binding: [Neon](https://github.com/neon-bindings/neon)
-- Platforms: Linux (ARM64 and x64), macOS (ARM64 and x64), Windows (x64); Node.js 10.0.0 and higher
-
-### Get
-
-Using npm:
-
-```bash
-npm i @minify-html/node
-```
-
-Using Yarn:
-
-```bash
-yarn add @minify-html/node
-```
-
-### Use
-
-TypeScript definitions are available.
-
-```ts
-import { Buffer } from "node:buffer";
-import minifyHtml from "@minify-html/node";
-// Or `const minifyHtml = require("@minify-html/node")` if not using TS/ESM.
-
-const minified = minifyHtml.minify(Buffer.from("<p>  Hello, world!  </p>"), { keep_spaces_between_attributes: true, keep_comments: true });
-```
-
-All [`Cfg` fields](https://docs.rs/minify-html/latest/minify_html/struct.Cfg.html) are available as snake_case properties on the object provided as the second argument; if any are not set, they default to `false`.
-
-</details>
-
-<details>
-<summary><img width="24" src="https://wilsonl.in/minify-html/icon/java.png"> <strong>Java</strong></summary>
-
-- Package: [in.wilsonl.minifyhtml](https://search.maven.org/artifact/in.wilsonl.minifyhtml/minify-html)
-- Binding: [JNI](https://github.com/jni-rs/jni-rs)
-- Platforms: Linux (ARM64 and x64), macOS (ARM64 and x64), Windows (x64); Java 8 and higher
-
-### Get
-
-Add as a Maven dependency:
-
-```xml
-<dependency>
-  <groupId>in.wilsonl.minifyhtml</groupId>
-  <artifactId>minify-html</artifactId>
-  <version>0.18.1</version>
-</dependency>
-```
-
-### Use
-
-```java
-import in.wilsonl.minifyhtml.Configuration;
-import in.wilsonl.minifyhtml.MinifyHtml;
-
-Configuration cfg = new Configuration.Builder()
-    .setKeepHtmlAndHeadOpeningTags(true)
-    .setMinifyCss(true)
-    .build();
-
-String minified = MinifyHtml.minify("<p>  Hello, world!  </p>", cfg);
-```
-
-All [`Cfg` fields](https://docs.rs/minify-html/latest/minify_html/struct.Cfg.html) are available as camelCase setter methods on the `Builder`; if any are not set, they default to `false`.
-
-</details>
-
-<details>
-<summary><img width="24" src="https://wilsonl.in/minify-html/icon/python.png"> <strong>Python</strong></summary>
-
-- Package: [minify-html](https://pypi.org/project/minify-html)
-- Binding: [PyO3](https://github.com/PyO3/pyo3)
-- Platforms: Linux (ARM64 and x64), macOS (ARM64 and x64), Windows (x64); Python 3.8 to 3.14
-
-### Get
-
-Add the PyPI project as a dependency and install it using `pip` or `pipenv`.
-
-### Use
-
-```python
-import minify_html
-
-minified = minify_html.minify("<p>  Hello, world!  </p>", minify_js=True, remove_processing_instructions=True)
-```
-
-All [`Cfg` fields](https://docs.rs/minify-html/latest/minify_html/struct.Cfg.html) are available as Python keyword arguments; if any are omitted, they default to `False`.
-
-</details>
-
-<details>
-<summary><img width="24" src="https://wilsonl.in/minify-html/icon/ruby.png"> <strong>Ruby</strong></summary>
-
-- Package: [minify_html](https://rubygems.org/gems/minify_html)
-- Binding: [rb-sys](https://github.com/oxidize-rb/rb-sys) and [magnus](https://github.com/matsadler/magnus)
-- Platforms: Linux (ARM64 and x64), macOS (ARM64 and x64), Windows (x64); Ruby 3.2 to 3.4
-
-### Get
-
-Add the library as a dependency to `Gemfile` or `*.gemspec`.
-
-### Use
-
-```ruby
-require 'minify_html'
-
-print minify_html("<p>  Hello, world!  </p>", { :keep_spaces_between_attributes => true, :minify_js => true })
-```
-
-All [`Cfg` fields](https://docs.rs/minify-html/latest/minify_html/struct.Cfg.html) are available; if any are omitted, they default to `false`.
-
-</details>
-
-<details>
-<summary><img width="24" src="https://wilsonl.in/minify-html/icon/wasm.png"> <strong>WASM</strong></summary>
-
-- Package: [@minify-html/wasm](https://npmjs.org/package/@minify-html/wasm)
-- Binding: [WASM](https://webassembly.org/)
-- Platforms: All
-
-A bundler may be required to use the WebAssembly module, see [this](https://rustwasm.github.io/wasm-bindgen/reference/deployment.html#bundlers) for more details.
-
-### Use
-
-```ts
-import init, {minify} from "@minify-html/wasm";
-
-const encoder = new TextEncoder();
-const decoder = new TextDecoder();
-
-await init();
-
-const minified = decoder.decode(minify(encoder.encode("<p>  Hello, world!  </p>"), { keep_spaces_between_attributes: true, keep_comments: true }));
-```
-
-All [`Cfg` fields](https://docs.rs/minify-html/latest/minify_html/struct.Cfg.html) are available as snake_case properties on the object provided as the second argument; if any are not set, they default to `false`.
-
-</details>
-
 ## Templating syntax
 
 minify-html can parse and preserve `{{`/`{%`/`{#` and `<%` syntax in the source code, which allows minification of many HTML templates written for most engines like Pebble, Mustache, Django, Go, Jinja, Twix, Nunjucks, Handlebars, Sailfish, JSP, EJS, and ERB. Look for the `preserve_*_template_syntax` Cfg options.
@@ -294,7 +110,7 @@ To minify even further, it's possible to enable options that may output HTML tha
 - `allow_removing_spaces_between_attributes`
 - `minify_doctype`
 
-In Rust, `Cfg::enable_possibly_noncompliant` can enable all of these at once.
+`Cfg::enable_possibly_noncompliant` enables all of these at once.
 
 ### Whitespace
 

@@ -2,6 +2,7 @@
 
 ## Pending
 
+- Remove the Deno, Java, Node.js, Python (including onepass), Ruby and WASM bindings. Only the Rust crates and the `minhtml` CLI remain.
 - Add `preserve_inline_whitespace` option, which minifies with the template mode whitespace rules even when the source has no template syntax, so rendered HTML keeps separators between inline elements.
 - Compact template-bearing tag separators and normal HTML indentation without changing quoted JSON/attribute values, Askama whitespace controls, visible inline separators, preformatted/raw regions or ESI XML semantics.
 - Preserve Askama-style templates at compile time without guessing conditional HTML trees: retain dynamic attribute order/quotes, explicit closing tags, significant text spacing, nested comments, quoted delimiters, raw blocks and special-element bodies while minifying literal HTML opening tags.
@@ -10,7 +11,7 @@
 - Keep empty ESI attribute values quoted and preserve ESI comments when `preserve_esi_tags` is enabled.
 - Add `preserve_esi_tags` option, which parses [Edge Side Includes](https://www.w3.org/TR/esi-lang/) markup (any tag in the `esi:` namespace) as XML: self-closing tags like `<esi:include src="/a" />` are honoured as empty elements instead of being parsed as HTML opening tags that swallow their following siblings, and attribute values on ESI tags are left quoted so XML-based ESI processors can still parse them.
 - Disable treeshake annotations (e.g., `/*#__PURE__*/`) in minified JavaScript output as they are only useful for bundlers, not inline scripts.
-- Update oxc to 0.139 (requires Rust 1.95 or later) and pyo3 to 0.29.
+- Update oxc to 0.139 (requires Rust 1.95 or later).
 
 ## 0.18.1
 

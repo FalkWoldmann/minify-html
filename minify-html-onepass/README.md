@@ -12,12 +12,9 @@ An HTML minifier that provides the functionality of [minify-html](https://github
 
 ## Usage
 
-The API is different compared to minify-html; refer to per-package documentation for more details.
+The API is different compared to minify-html; see the [docs](https://docs.rs/minify-html-onepass) for more details.
 
-- <img width="24" src="https://wilsonl.in/minify-html/icon/python.png"> [minify-html-onepass](https://pypi.org/project/minify-html-onepass)
 - <img width="24" src="https://wilsonl.in/minify-html/icon/rust.png"> [minify-html-onepass](https://crates.io/crates/minify-html-onepass)
-
-If you don't see your preferred language here and the main library supports it, raise an issue.
 
 ## Parsing
 

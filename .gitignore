@@ -1,9 +1,7 @@
-__pycache__/
 bin/
 build/
 Cargo.lock
 dist/
-Gemfile.lock
 node_modules/
 npm-debug.log*
 out/
@@ -11,22 +9,9 @@ package-lock.json
 perf.data*
 target/
 tmp/
-wasm-pack.log
 
 # Bench
 /bench/results/
 
 # Debug
 /debug/diff/outputs/
-
-# Java
-*.nativelib
-
-# Node.js
-index.node
-
-# Python
-*.egg-info/
-
-# WASM
-/minify-html-wasm/pkg/
