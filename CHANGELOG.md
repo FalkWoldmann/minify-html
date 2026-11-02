@@ -3,7 +3,7 @@
 ## Pending
 
 - Remove the Deno, Java, Node.js, Python (including onepass), Ruby and WASM bindings, the `minhtml` CLI and the `minify-html-onepass` crate. Only the `minify-html` library remains.
-- Switch to Rust 2024 (requires Rust 1.95 or later) and move shared package metadata and dependencies into the workspace manifest.
+- Switch to Rust 2024 and move shared package metadata and dependencies into the workspace manifest.
 - Fold `minify-html-common` into `minify-html` as private modules, and generate the entity trie without padding every node out to 256 children.
 - Replace `once_cell` with `std::sync::LazyLock`.
 - Add `preserve_inline_whitespace` option, which minifies with the template mode whitespace rules even when the source has no template syntax, so rendered HTML keeps separators between inline elements.
@@ -14,7 +14,7 @@
 - Keep empty ESI attribute values quoted and preserve ESI comments when `preserve_esi_tags` is enabled.
 - Add `preserve_esi_tags` option, which parses [Edge Side Includes](https://www.w3.org/TR/esi-lang/) markup (any tag in the `esi:` namespace) as XML: self-closing tags like `<esi:include src="/a" />` are honoured as empty elements instead of being parsed as HTML opening tags that swallow their following siblings, and attribute values on ESI tags are left quoted so XML-based ESI processors can still parse them.
 - Disable treeshake annotations (e.g., `/*#__PURE__*/`) in minified JavaScript output as they are only useful for bundlers, not inline scripts.
-- Update oxc to 0.139 (requires Rust 1.95 or later).
+- Update oxc and raise the minimum Rust version to 1.97.
 
 ## 0.18.1
 

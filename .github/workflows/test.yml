@@ -35,8 +35,8 @@ jobs:
       - uses: actions/checkout@v7
 
       # Keep in sync with `rust-version` in Cargo.toml, which oxc sets the floor for.
-      - name: Install Rust 1.95
-        uses: dtolnay/rust-toolchain@1.95
+      - name: Install Rust 1.97
+        uses: dtolnay/rust-toolchain@1.97
 
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2
