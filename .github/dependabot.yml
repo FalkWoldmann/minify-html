@@ -10,6 +10,18 @@ updates:
       oxc:
         patterns:
           - oxc_*
+    ignore:
+      # Pinned to the major version in Cargo.toml, so only a new major needs a PR. Listed by name
+      # because a wildcard would also drop the 0.x crates, where Dependabot calls 0.14 -> 0.15 a
+      # minor update. Security updates aren't affected by `update-types`.
+      - dependency-name: aho-corasick
+        update-types: [version-update:semver-minor, version-update:semver-patch]
+      - dependency-name: memchr
+        update-types: [version-update:semver-minor, version-update:semver-patch]
+      - dependency-name: serde
+        update-types: [version-update:semver-minor, version-update:semver-patch]
+      - dependency-name: serde_json
+        update-types: [version-update:semver-minor, version-update:semver-patch]
 
   - package-ecosystem: github-actions
     directory: /
