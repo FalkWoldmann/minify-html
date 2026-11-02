@@ -20,7 +20,7 @@ keywords = ["html", "compress", "minifier", "js", "css"]
 [workspace.dependencies]
 ahash = "0.8"
 aho-corasick = "1"
-itertools = "0.14"
+itertools = "0.15"
 lightningcss = "1.0.0-alpha.72"
 memchr = "2"
 minify-html = { version = "0.18", path = "minify-html" }
