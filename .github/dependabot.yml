@@ -10,18 +10,13 @@ updates:
       oxc:
         patterns:
           - oxc_*
-    ignore:
-      # Pinned to the major version in Cargo.toml, so only a new major needs a PR. Listed by name
-      # because a wildcard would also drop the 0.x crates, where Dependabot calls 0.14 -> 0.15 a
-      # minor update. Security updates aren't affected by `update-types`.
-      - dependency-name: aho-corasick
-        update-types: [version-update:semver-minor, version-update:semver-patch]
-      - dependency-name: memchr
-        update-types: [version-update:semver-minor, version-update:semver-patch]
-      - dependency-name: serde
-        update-types: [version-update:semver-minor, version-update:semver-patch]
-      - dependency-name: serde_json
-        update-types: [version-update:semver-minor, version-update:semver-patch]
+    allow:
+      # Patch releases fit the pins in Cargo.toml, so they don't need a PR. Keep `minor`: Dependabot's
+      # filter treats every newer 0.x release as minor, so without it no 0.x crate would get a PR.
+      - dependency-type: direct
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      # Its alpha bumps count as patches, so it needs every update type.
+      - dependency-name: lightningcss
 
   - package-ecosystem: github-actions
     directory: /
