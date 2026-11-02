@@ -1,0 +1,21 @@
+version: 2
+
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # The oxc crates depend on each other at the same version, so they can only move together.
+      oxc:
+        patterns:
+          - oxc_*
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      # Its refs pick the Rust toolchain, not a version of the action. The `1.95` one is the MSRV
+      # and has to follow `rust-version` in Cargo.toml.
+      - dependency-name: dtolnay/rust-toolchain
